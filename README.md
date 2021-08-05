@@ -13,6 +13,32 @@
 - 简单易学，Lisp语言非常直观易懂
 - 减少错误：相比直接在命令系统寻找错误，在CL脚本中寻找错误显然更加简单
 
+## 变量定义
+
+​	CommandLisp有以下几种变量类型：
+
+- number 数字类型
+
+- string 字符串
+
+- atom 原子
+
+  可以使用let来定义临时变量:
+
+  ```lisp
+  (let (a 2)) ; a = 2
+  (let (b "tell @e Secret Message!")(cmd b)) ; "tell @e Secret Message!"
+  ```
+
+  define则用于普通变量：
+
+  ```lisp
+  (define a 2)
+  (if (> a 2)(write "a > 2")(write "a <= 2"))
+  ```
+
+  
+
 ## 基本命令
 
 - tag+ : 给实体添加tag
@@ -52,7 +78,14 @@
   (write "Hello World") ; [!]Hello World
   ```
 
-- coming soon
+- tp
+
+  Teleport命令
+
+  ```lisp
+  (tp r r) ; "tp @r @r"
+  (tp a p) ; "tp @a @p"
+  ```
 
 ## 条件表达式
 
@@ -62,6 +95,8 @@
 (if (test)(then)(else))
 (if (tag~ a "TEST")(write "Found player marked for TEST")(write "No player has the TEST tag"))
 ```
+
+
 
 > CAIMEO注： 该语言只是我的一个小想法，但是我觉得非常有意思，如果反响不错的话我可能在近期推出它。上述文档仅仅介绍了语言的一小部分内容，还不能真正展现Lisp的全部魅力，也可能存在一些错误，毕竟本人不是CB圈子的人，写这个语言不过是为了学习Lisp和编译原理。当然，如果这份文档能够引起CB圈大佬的注意，那我也是非常开心的:)
 
