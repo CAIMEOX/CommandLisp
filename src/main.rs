@@ -66,7 +66,7 @@ fn main() {
         match parse_eval(expr, env) {
             Ok(res) => println!("🔥 => {}", res),
             Err(e) => match e {
-                RispErr::Reason(msg) => println!("🙀 => {}", msg),
+                RispErr::Reason(msg) => println!("🚨 => {}", msg),
             },
         }
     }
