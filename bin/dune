@@ -1,4 +1,6 @@
 (executable
  (public_name command_lisp)
  (name main)
- (libraries command_lisp))
+ (libraries core)
+ (preprocess
+  (pps ppx_jane)))

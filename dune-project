@@ -5,22 +5,18 @@
 (generate_opam_files true)
 
 (source
- (github username/reponame))
+ (github CAIMEOX/CommandLisp))
 
-(authors "Author Name")
+(authors "CAIMEO")
 
-(maintainers "Maintainer Name")
+(maintainers "CAIMEO")
 
 (license LICENSE)
 
-(documentation https://url/to/documentation)
+(documentation https://github.com/CAIMEOX/CommandLisp)
 
 (package
  (name command_lisp)
- (synopsis "A short synopsis")
- (description "A longer description")
- (depends ocaml dune)
- (tags
-  (topics "to describe" your project)))
-
-; See the complete stanza docs at https://dune.readthedocs.io/en/stable/dune-files.html#dune-project
+ (synopsis "Command Lisp")
+ (description "A tool that compiles lisp to mcfunction")
+ (depends ocaml dune core))

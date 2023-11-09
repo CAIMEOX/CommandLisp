@@ -97,7 +97,6 @@
 (if (tag~ a "TEST")(write "Found player marked for TEST")(write "No player has the TEST tag"))
 ```
 
-
-
-> CAIMEO 注： 该语言只是我的一个小想法，但是我觉得非常有意思，如果反响不错的话我可能在近期推出它。上述文档仅仅介绍了语言的一小部分内容，还不能真正展现Lisp的全部魅力，也可能存在一些错误，毕竟本人不是CB圈子的人，写这个语言不过是为了学习Lisp和编译原理。当然，如果这份文档能够引起CB圈大佬的注意，那我也是非常开心的:)
+## License
+GPL V3
 
