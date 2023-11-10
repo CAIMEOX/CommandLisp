@@ -26,23 +26,18 @@ let get_label_index (instr : instr array) (label: label) : int =
     else aux (i + 1)
   in aux 0
 
-let compile_pop = Command.stack_pop max_mem
+open Command
+let (>>) = Util.(>>)
+let compile_pop = Stack.pop max_mem
+let compile_if0 (t: label) = compile_pop "x0" >> Execute.execute (Execute.cond_score_eq "cpu x0" "cpu a0") (Stack.run_function t)
+let compile_push v = Register.reg_set "t0" v >> Stack.push max_mem "t0"
+let compile_swap r1 r2 = Stack.pop max_mem r1 >> Stack.pop max_mem r2 >> Stack.push max_mem r1 >> Stack.push max_mem r2
+let compile_prim_op op r1 r2 = Stack.pop max_mem r1 >> Stack.pop max_mem r2 >> Register.reg_op op r1 r2 >> Stack.push max_mem r1
+let compile_ret n = compile_pop "x0" (* res *)
+>> ScoreBoard.unary_sub "cpu a0" n
+>> compile_pop "t0" (* just a placehold *) >> Stack.push max_mem "x0" >> "goto?"
 
-let compile_push v =
-  Command.set_register "t0" v ^ Command.stack_push max_mem "t0"
-
-let compile_swap r1 r2 =
-  Command.stack_pop max_mem r1
-  ^ Command.stack_pop max_mem r2
-  ^ Command.stack_push max_mem r1
-  ^ Command.stack_push max_mem r2
-
-let compile_prim_op op r1 r2 =
-  Command.stack_pop max_mem r1
-  ^ Command.stack_pop max_mem r2
-  ^ Command.prim_op op r1 r2
-  ^ Command.stack_push max_mem r1
-
+let compile_call f n = Printf.sprintf "%s%d" f n
 let compile_syscall = ""
 
 let encode (instrs : instr array) : string list =
@@ -56,10 +51,10 @@ let encode (instrs : instr array) : string list =
   | Cst i -> compile_push i
   | Label l -> "# " ^ l ^ ":"
   | Var n -> compile_push n
-  | Call (_) -> "call"
-  | Ret _ -> "ret"
-  | IfZero _ -> "if0"
-  | Goto i -> get_label_index instrs i |> Command.set_register "pc" 
+  | Call (f, n) -> compile_call f n
+  | Ret n -> compile_ret n
+  | IfZero t -> compile_if0 t
+  | Goto i -> "function " ^ i
   | Exit -> "function init"
   | Syscall -> "syscall"
   | LoadMemory _ -> "ld"
