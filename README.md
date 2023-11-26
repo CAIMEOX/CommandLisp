@@ -1,5 +1,5 @@
 # Command Lisp
-> The Project is WIP actively
+> The Project is WIP actively. Click to view the [design document](design.md)
 
 Command Lisp is a simplified language designed for Minecraft Bedrock, characterized by a very high level of abstraction. At the same time, it is also a dialect of Lisp.
 

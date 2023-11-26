@@ -1,5 +1,6 @@
 let max_mem : int = 128
-let ret_stack_size = ref 0;
+let ret_stack_size = ref 0
+
 type label = string
 
 type instr =
@@ -43,12 +44,12 @@ let compile_if0 (t : label) =
 let compile_push v = Register.reg_set "t0" v >> StackFrame.push max_mem "t0"
 
 let compile_swap r1 r2 =
-  StackFrame.pop max_mem r1 >> StackFrame.pop max_mem r2 >> StackFrame.push max_mem r1
-  >> StackFrame.push max_mem r2
+  StackFrame.pop max_mem r1 >> StackFrame.pop max_mem r2
+  >> StackFrame.push max_mem r1 >> StackFrame.push max_mem r2
 
 let compile_prim_op op r1 r2 =
-  StackFrame.pop max_mem r1 >> StackFrame.pop max_mem r2 >> Register.reg_op op r1 r2
-  >> StackFrame.push max_mem r1
+  StackFrame.pop max_mem r1 >> StackFrame.pop max_mem r2
+  >> Register.reg_op op r1 r2 >> StackFrame.push max_mem r1
 
 (*
   | x0 <- pop 
@@ -77,16 +78,16 @@ let compile_var n =
   >> StackFrame.push max_mem "t1"
 
 let call_index = ref 0
+
 let next () =
   let n = !call_index in
   call_index := n + 1;
   (n, "fn_call_" ^ string_of_int n)
-let compile_call f = 
-  let (i, label) = next () in 
-   let _ = RetStack.link "t0" i label in 
-    "function " ^ f >>
-    RetStack.push !ret_stack_size "t0" >>
-    "# " ^ label
+
+let compile_call f =
+  let i, label = next () in
+  let _ = RetStack.link "t0" i label in
+  "function " ^ f >> RetStack.push !ret_stack_size "t0" >> "# " ^ label
 
 let compile_syscall = ""
 
@@ -97,7 +98,8 @@ let compute_ret_stack_size (instrs : instr array) : int =
       match instrs.(i) with
       | Call _ -> aux (i + 1) (acc + 1)
       | _ -> aux (i + 1) acc
-  in aux 0 0
+  in
+  aux 0 0
 
 let encode (instrs : instr array) : string list =
   ret_stack_size := compute_ret_stack_size instrs;
@@ -147,36 +149,34 @@ let rec print_instr (instrs : instr list) : string =
       | Goto i -> "Goto " ^ i ^ "\n" ^ print_instr instrs
       | Exit -> "Exit\n" ^ print_instr instrs)
 
-let split_tags (commands: string) : (string * string) list = 
+let split_tags (commands : string) : (string * string) list =
   let lines = String.split_on_char '\n' commands in
-    let result = ref [] in
-    let cur_title = ref "# entry:" in
-      for i = 0 to List.length lines - 1 do 
-        let line = List.nth lines i in 
-          if String.length line > 0 && line.[0] = '#' then 
-            cur_title := line
-          else 
-            result := (!cur_title, line) :: !result
-      done;
-    !result
-  (* split the string with the line starts with # *)
-  
-let format_tag tag = 
-  let tag = String.sub tag 2 (String.length tag - 2) in 
-    let tag = String.split_on_char ':' tag in 
-      List.nth tag 0
+  let result = ref [] in
+  let cur_title = ref "# entry:" in
+  for i = 0 to List.length lines - 1 do
+    let line = List.nth lines i in
+    if String.length line > 0 && line.[0] = '#' then cur_title := line
+    else result := (!cur_title, line) :: !result
+  done;
+  !result
+(* split the string with the line starts with # *)
 
-let file_name= Printf.sprintf "functions/%s.mcfunction" 
+let format_tag tag =
+  let tag = String.sub tag 2 (String.length tag - 2) in
+  let tag = String.split_on_char ':' tag in
+  List.nth tag 0
 
-let save_all_funs (fn_list: (string * string) list) = 
+let file_name = Printf.sprintf "functions/%s.mcfunction"
+
+let save_all_funs (fn_list : (string * string) list) =
   let cur_title = ref (fst (List.hd fn_list)) in
   let content = ref "" in
-  fn_list |> List.iter (fun (title, fn) -> 
-    print_endline !content;
-    if title <> !cur_title then
-      let tag = format_tag !cur_title in 
-      (Util.write_to_file (file_name tag) !content;
-      cur_title := title;
-      content := "function " ^ tag)
-    else 
-      content := fn >> !content);
+  fn_list
+  |> List.iter (fun (title, fn) ->
+         print_endline !content;
+         if title <> !cur_title then (
+           let tag = format_tag !cur_title in
+           Util.write_to_file (file_name tag) !content;
+           cur_title := title;
+           content := "function " ^ tag)
+         else content := fn >> !content)
