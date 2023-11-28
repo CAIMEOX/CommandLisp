@@ -21,7 +21,7 @@ In command lisp we currently support int type.
 (let [a 3 b 5] (+ a b)) ; 8
 ```
 
-Define function and use
+Define function and use it.
 ```clojure
 (def name [param1 param2 param2 ...] (body) (expr))
 (def square [n] (* n n) (square 10)) ; 100

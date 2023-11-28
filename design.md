@@ -1,9 +1,9 @@
 # Design of Command Lisp
 ## Goals
-- A **turing complete** language with s-expression syntax (named Command Lisp)
-- Support inter-operation with Minecraft Bedrock Command System (Always support the newest standard)
-- Trans-compile CommandLisp to file format `mcstructure`
-- High performance with Low Cost Abstraction
+- A **turing complete** language with **s-expression** syntax (named Command Lisp)
+- Support inter-operation with Minecraft Bedrock Command System (Always support the **newest** standard)
+- Trans-compile CommandLisp to file format `mcstructure` and `mcfunction`
+- High performance with **Low Cost Abstraction**
 
 ## Command Lisp Workflow
 ```mermaid
@@ -14,8 +14,10 @@ graph LR
   AST1[AST] --Compile--> CASM[CL Assembly]
   CASM --Transcompile--> CS[Command System]
 
-  CS --> MCS[mcstructure]
+  CS --> R[mcstructure + mcfunction]
 ```
+Command Lisp project is mainly a compiler which compiles CL code to CASM.
+
 
 ## Assembly Of Command Lisp
 Command Lisp will first compiles source codes into CASM (Command Assembly) running on a specific stack machine.
@@ -81,9 +83,31 @@ syscall
 ```
 
 ## Command System
-Command system is a object contains metadata of every command and its location information (also with some world structures inside)
+Command system is a object (`system`) contains metadata of every command and its location information (also with some world structures inside)
+```ocaml
+type system = {
+  name : string;
+  init_program : command_sequence;
+  entry_program : command_sequence;
+  programs : command_sequence list;
+  boundbox : int * int * int; (* max size of system *)
+}
+```
 - A sequence of command block is store as a `command_block list`
-- `command_block` is a record type
+- `command_block` is a record type with metadata of the command block 
+```ocaml
+type command_block = {
+  command : string;
+  block_type : block_type;
+  condition : bool;
+  auto : bool;
+  execute_on_first_tick : bool;
+  hover_note : string;
+  delay : int;
+  previous_output : string;
+}
+```
+
 
 ## World Model
 The world model explains how the commands will be generated.
@@ -92,9 +116,51 @@ The world model explains how the commands will be generated.
 - All the data will be processed in **CPU** registers before which a `read` operation should be performed.
 - There are more than one stacks in CL for different purposes (function call and normal stack). All the data stores in the normal **data stack** and the return address in **call stack**. Stack supports the following operations:
   - Pop: Pop the value in the stack top
-  - Push: Push a value to the stacp top
+  - Push: Push a value to the stack top
   - Peek: Peek the value in the stack top (Leave the stack unchanged)
 - The Stack Pointer (`sp`): A pointer in register `sp` that points to the stack top
+
+#### CPU Design
+- The CPU registers are all **objectives** (named `x0,x1` and something like these) that attached to a **virtual player** (The score holder) named `CPU`
+
+#### Proposal One - Entity Stack
+In this standard we use entity (It can be `armor_stand`) as the stack.
+- Every single entity represents a stack frame
+- Use a **directed** (The direction can be `x+`) sequence of entities as a stack (Form a list in the minecraft world.)
+- Every entity has a score objective named `stack` which saves the value of the stack frame
+- The entity at stack top has a tag `stack_top`
+
+##### Push Operation
+- Add a tag `to_be_removed` to the stack top entity
+- Add a tag `stack_top` to the entity positioned `direction + 1`
+- Remove the tag `stack_top` from the entity with tag `to_be_removed`
+- Remove the tag `to_be_removed`
+- Load the value at a register to the entity with tag `stack_top`
+
+##### Pop Operation
+- Load the value at the stack top to a register
+- Add a tag `to_be_removed` to the stack top entity
+- Add a tag `stack_top` to the entity positioned `direction - 1`
+- Remove the tag `stack_top` from the entity with tag `to_be_removed`
+- Remove the tag `to_be_removed`
+
+##### Peek Operation
+- Load the value at the stack top to a register
+
+##### Constant Operation over Stack Pointer
+Suppose we need to find the stack at `sp - n`. `<Entity>` can be substituted with a specific entity.
+- Add a tag `to_be_removed` to the stack top entity
+- Locate the stack top entity `execute as @r[type=<Entity>,tag=stack_top] run <Offset>`
+- Find the offset stack frame `<Offset> := execute positioned ~-n ~ ~ run <TagAdd>`
+- Add the stack_top tag `<TagAdd> := tag @r[r=0, type=<Entity>] stack_top`
+- Remove the tag `stack_top` from the entity with tag `to_be_removed`
+- Remove the tag `to_be_removed`
+
+> A sub proposal: Tag every stack frame with a number for ordering.
+
+#### Proposal Two - Scoreboard Stack
+This standard uses virtual player as stack frame
+
 ### Instructions
 Problems:
 - How to handle program requires multi loop?
@@ -123,3 +189,5 @@ The generate CL system (One or more `mcstructure` files) contains the following 
 > The following features are not designed yet and may not be implemented.
 ### Multithreading
 ### Async / Await
+
+## Notes of command
