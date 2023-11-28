@@ -5,20 +5,18 @@ type label = string
 
 type instr =
   | Cst of int
-  | Pop of string
-  | Swap of string * string
-  | Add of string * string
-  | Mul of string * string
-  | Sub of string * string
-  | Div of string * string
+  | Pop
+  | Swap
+  | Add
+  | Mul
+  | Sub
+  | Div
   | Call of label * int
   | Var of int
   | Ret of int
   | Label of label
   | IfZero of label
   | Goto of label
-  | LoadMemory of string * int
-  | SaveMemory of string * int
   | Syscall
   | Exit
 
@@ -31,6 +29,7 @@ let get_label_index (instr : instr array) (label : label) : int =
   aux 0
 
 open Command
+open Control
 
 let ( >> ) = Util.( >> )
 let compile_pop = StackFrame.pop max_mem
@@ -105,12 +104,13 @@ let encode (instrs : instr array) : string list =
   ret_stack_size := compute_ret_stack_size instrs;
   Array.map
     (function
-      | Pop r -> compile_pop r
-      | Swap (r1, r2) -> compile_swap r1 r2
-      | Add (r1, r2) -> compile_prim_op "+=" r1 r2
-      | Mul (r1, r2) -> compile_prim_op "*=" r1 r2
-      | Sub (r1, r2) -> compile_prim_op "-=" r1 r2
-      | Div (r1, r2) -> compile_prim_op "/=" r1 r2
+    (* TODO: assign registers by module Control *)
+      | Pop -> compile_pop "a0"
+      | Swap -> compile_swap "a0" "a1"
+      | Add -> compile_prim_op "+=" "a0" "a1"
+      | Mul -> compile_prim_op "*=" "a0" "a1"
+      | Sub -> compile_prim_op "-=" "a0" "a1"
+      | Div -> compile_prim_op "/=" "a0" "a1"
       | Cst i -> compile_push i
       | Label l -> "# " ^ l ^ ":"
       | Var n -> compile_var n
@@ -119,9 +119,7 @@ let encode (instrs : instr array) : string list =
       | IfZero t -> compile_if0 t
       | Goto i -> "function " ^ i
       | Exit -> "function init"
-      | Syscall -> "syscall"
-      | LoadMemory _ -> "ld"
-      | SaveMemory _ -> "sd")
+      | Syscall -> "syscall")
     instrs
   |> Array.to_list
 
@@ -130,12 +128,12 @@ let rec print_instr (instrs : instr list) : string =
   | [] -> ""
   | instr :: instrs -> (
       match instr with
-      | Pop _ -> "Pop\n" ^ print_instr instrs
-      | Swap _ -> "Swap\n" ^ print_instr instrs
-      | Add _ -> "Add\n" ^ print_instr instrs
-      | Mul _ -> "Mul\n" ^ print_instr instrs
-      | Sub _ -> "Sub\n" ^ print_instr instrs
-      | Div _ -> "Div\n" ^ print_instr instrs
+      | Pop -> "Pop\n" ^ print_instr instrs
+      | Swap -> "Swap\n" ^ print_instr instrs
+      | Add -> "Add\n" ^ print_instr instrs
+      | Mul -> "Mul\n" ^ print_instr instrs
+      | Sub -> "Sub\n" ^ print_instr instrs
+      | Div -> "Div\n" ^ print_instr instrs
       | Call (label, n) ->
           "Call " ^ label ^ " " ^ string_of_int n ^ "\n" ^ print_instr instrs
       | Ret n -> "Ret " ^ string_of_int n ^ "\n" ^ print_instr instrs
@@ -143,8 +141,6 @@ let rec print_instr (instrs : instr list) : string =
       | Var n -> "Var " ^ string_of_int n ^ "\n" ^ print_instr instrs
       | Cst i -> "Cst " ^ string_of_int i ^ "\n" ^ print_instr instrs
       | Label l -> "Label " ^ l ^ ":\n" ^ print_instr instrs
-      | LoadMemory _ -> "LoadMemory\n" ^ print_instr instrs
-      | SaveMemory _ -> "SaveMemory\n" ^ print_instr instrs
       | Syscall -> "Syscall\n" ^ print_instr instrs
       | Goto i -> "Goto " ^ i ^ "\n" ^ print_instr instrs
       | Exit -> "Exit\n" ^ print_instr instrs)
@@ -180,3 +176,35 @@ let save_all_funs (fn_list : (string * string) list) =
            cur_title := title;
            content := "function " ^ tag)
          else content := fn >> !content)
+
+type block_type = Chain | Repeat | Impulse
+
+type command_block = {
+  command : string;
+  block_type : block_type;
+  condition : bool;
+  auto : bool;
+  execute_on_first_tick : bool;
+  hover_note : string;
+  delay : int;
+  previous_output : string;
+}
+
+type command_sequence = command_block list
+
+type system = {
+  name : string;
+  init_program : command_sequence;
+  entry_program : command_sequence;
+  programs : command_sequence list;
+  boundbox : int * int * int; (* max size of system *)
+}
+
+let system_init_with_size x y z =
+  {
+    name = "cl";
+    init_program = [];
+    entry_program = [];
+    programs = [];
+    boundbox = (x, y, z);
+  }

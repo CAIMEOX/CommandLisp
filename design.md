@@ -17,7 +17,20 @@ graph LR
   CS --> R[mcstructure + mcfunction]
 ```
 Command Lisp project is mainly a compiler which compiles CL code to CASM.
-
+- `Main`: A CLI of Command Lisp
+- `Parse`: The main parser
+  - `parse`: parse source code into `expr`
+  - `preprocess_and_compile`: insert main function and compile `expr` into `instr list` (CASM)
+- `Control`: Implement of different memory layout (See world model) and algorithm to automatically assign registers
+- `Command`: Provides all command generator
+  - `ScoreBoard`: Scoreboard command 
+  - `Execute`: Execute command
+- `Util`: File and string related operations (And McFunction handler)
+- `Nbt`: Named Binary Tag encoder (incomplete but enough for `mcstructure`)
+  - `encode_nbt`: Encode nbt type to string
+- `Mcs`: Handle mcstructure and metadata of command blocks (Save command system to files)
+- `Vm`: A simulator (stack virtual machine) for CASM (incomplete: unable to handle syscall)
+- `Arch`: A trans-compiler that compiles CASM into a command system
 
 ## Assembly Of Command Lisp
 Command Lisp will first compiles source codes into CASM (Command Assembly) running on a specific stack machine.

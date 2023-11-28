@@ -112,11 +112,11 @@ let vindex (venv : venv) (x : string) =
 
 let get_prim_op op name num =
   match op with
-  | Add -> Vm.Add ("a0", "a1")
-  | Mul -> Vm.Mul ("a0", "a1")
-  | Sub -> Vm.Sub ("a0", "a1")
-  | Div -> Vm.Div ("a0", "a1")
-  | Self -> Vm.Call (name, num)
+  | Add -> Arch.Add
+  | Mul -> Arch.Mul
+  | Sub -> Arch.Sub
+  | Div -> Arch.Div
+  | Self -> Arch.Call (name, num)
 
 let rec compile_exprs venv exprs name num =
   let rec loop venv exprs acc =
@@ -128,31 +128,31 @@ let rec compile_exprs venv exprs name num =
 
 and compile_expr (venv : venv) (expr : Flat.expr) (name : string) (num : int) =
   match expr with
-  | Cst n -> [ Vm.Cst n ]
+  | Cst n -> [ Arch.Cst n ]
   | Prim (op, es) ->
       let es_code = compile_exprs venv es name num in
       let op_code = get_prim_op op name num in
       es_code @ [ op_code ]
-  | Var x -> [ Vm.Var (vindex venv x) ]
+  | Var x -> [ Arch.Var (vindex venv x) ]
   | App (f, args) ->
       let args_code = compile_exprs venv args name num in
       let n = List.length args in
-      args_code @ [ Vm.Call (f, n) ]
+      args_code @ [ Arch.Call (f, n) ]
   | Let (x, e1, e2) ->
       let e1_code = compile_expr venv e1 name num in
       let e2_code = compile_expr (Local x :: venv) e2 name num in
-      e1_code @ e2_code @ [ Vm.Swap ("t0", "t1"); Vm.Pop "t0" ]
+      e1_code @ e2_code @ [ Arch.Swap; Arch.Pop ]
   | If (cond, e1, e2) ->
       let else_label = LabelGen.else_fresh () in
       let end_label = LabelGen.end_fresh () in
       List.concat
         [
           compile_expr venv cond name num;
-          [ Vm.IfZero else_label ];
+          [ Arch.IfZero else_label ];
           compile_expr venv e1 name num;
-          [ Vm.Goto end_label; Vm.Label else_label ];
+          [ Arch.Goto end_label; Arch.Label else_label ];
           compile_expr venv e2 name num;
-          [ Vm.Label end_label ];
+          [ Arch.Label end_label ];
         ]
 
 let compile_fun (fn : Flat.fn) =
@@ -160,7 +160,7 @@ let compile_fun (fn : Flat.fn) =
   let num = List.length args in
   let venv = List.map args ~f:(fun x -> Param x) |> List.rev in
   List.concat
-    [ Vm.Label name :: compile_expr venv body name num; [ Vm.Ret num ] ]
+    [ Arch.Label name :: compile_expr venv body name num; [ Arch.Ret num ] ]
 
 let preprocess (expr : expr) =
   let main = ("main", [], remove_funs expr) in
@@ -169,7 +169,7 @@ let preprocess (expr : expr) =
 
 let compile (funs : Flat.fn list) =
   let code = List.concat_map funs ~f:compile_fun in
-  [ Vm.Call ("main", 0); Vm.Exit ] @ code
+  [ Arch.Call ("main", 0); Arch.Exit ] @ code
 
 let parse x = Sexp.of_string x |> parse_sexp
 let preprocess_and_compile prog = prog |> preprocess |> compile
