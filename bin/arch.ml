@@ -20,6 +20,24 @@ type instr =
   | Syscall
   | Exit
 
+let string_of_instr instr =
+  match instr with
+  | Cst i -> "Cst " ^ string_of_int i
+  | Add -> "Add"
+  | Sub -> "Sub"
+  | Mul -> "Mul"
+  | Div -> "Div"
+  | Var i -> "Var " ^ string_of_int i
+  | Pop -> "Pop"
+  | Swap -> "Swap"
+  | Label l -> "Label " ^ l
+  | Ret n -> "Ret " ^ string_of_int n
+  | Call (f, n) -> "Call " ^ f ^ " " ^ string_of_int n
+  | IfZero l -> "IfZero " ^ l
+  | Goto l -> "Goto " ^ l
+  | Exit -> "Exit"
+  | Syscall -> "Syscall"
+
 let get_label_index (instr : instr array) (label : label) : int =
   let rec aux i =
     if i >= Array.length instr then failwith "Label not found"
@@ -104,7 +122,7 @@ let encode (instrs : instr array) : string list =
   ret_stack_size := compute_ret_stack_size instrs;
   Array.map
     (function
-    (* TODO: assign registers by module Control *)
+      (* TODO: assign registers by module Control *)
       | Pop -> compile_pop "a0"
       | Swap -> compile_swap "a0" "a1"
       | Add -> compile_prim_op "+=" "a0" "a1"
@@ -169,7 +187,6 @@ let save_all_funs (fn_list : (string * string) list) =
   let content = ref "" in
   fn_list
   |> List.iter (fun (title, fn) ->
-         print_endline !content;
          if title <> !cur_title then (
            let tag = format_tag !cur_title in
            Util.write_to_file (file_name tag) !content;

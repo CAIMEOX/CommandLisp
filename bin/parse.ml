@@ -29,14 +29,6 @@ let rec parse_sexp = function
       Prim (Sub, [ parse_sexp e1; parse_sexp e2 ])
   | Sexp.List [ Sexp.Atom "/"; e1; e2 ] ->
       Prim (Div, [ parse_sexp e1; parse_sexp e2 ])
-  (* | Sexp.List [ Sexp.Atom "="; e1; e2 ] -> Prim (Eq, [parse_sexp e1; parse_sexp e2])
-     | Sexp.List [ Sexp.Atom "<"; e1; e2 ] -> Prim (Lt, [parse_sexp e1; parse_sexp e2])
-     | Sexp.List [ Sexp.Atom ">"; e1; e2 ] -> Prim (Gt, [parse_sexp e1; parse_sexp e2])
-     | Sexp.List [ Sexp.Atom "<="; e1; e2 ] -> Prim (Le, [parse_sexp e1; parse_sexp e2])
-     | Sexp.List [ Sexp.Atom ">="; e1; e2 ] -> Prim (Ge, [parse_sexp e1; parse_sexp e2])
-     | Sexp.List [ Sexp.Atom "and"; e1; e2 ] -> Prim (And, [parse_sexp e1; parse_sexp e2])
-     | Sexp.List [ Sexp.Atom "or"; e1; e2 ] -> Prim (Or, [parse_sexp e1; parse_sexp e2])
-     | Sexp.List [ Sexp.Atom "not"; e1 ] -> Prim (Not, [parse_sexp e1]) *)
   | Sexp.List [ Sexp.Atom "if"; e1; e2; e3 ] ->
       If (parse_sexp e1, parse_sexp e2, parse_sexp e3)
   | Sexp.List
@@ -61,6 +53,30 @@ module Flat = struct
     | If of expr * expr * expr
 
   type fn = string * string list * expr
+
+  let rec string_of_expr expr =
+    let rec loop expr =
+      match expr with
+      | Cst n -> string_of_int n
+      | Prim (prim, exprs) ->
+          "(" ^ string_of_prim prim ^ " "
+          ^ String.concat ~sep:" " (List.map exprs ~f:loop)
+          ^ ")"
+      | Var s -> s
+      | App (f, args) ->
+          "(" ^ f ^ " " ^ String.concat ~sep:" " (List.map args ~f:loop) ^ ")"
+      | Let (x, e1, e2) -> "(let (" ^ x ^ " " ^ loop e1 ^ ") " ^ loop e2 ^ ")"
+      | If (e1, e2, e3) ->
+          "(if " ^ loop e1 ^ " " ^ loop e2 ^ " " ^ loop e3 ^ ")"
+    in
+    loop expr
+
+  and string_of_prim = function
+    | Add -> "+"
+    | Mul -> "*"
+    | Sub -> "-"
+    | Div -> "/"
+    | Self -> "self"
 end
 
 type var = Param of string | Local of string | Temp
@@ -135,13 +151,11 @@ and compile_expr (venv : venv) (expr : Flat.expr) (name : string) (num : int) =
       es_code @ [ op_code ]
   | Var x -> [ Arch.Var (vindex venv x) ]
   | App (f, args) ->
-      let args_code = compile_exprs venv args name num in
-      let n = List.length args in
-      args_code @ [ Arch.Call (f, n) ]
+      compile_exprs venv args name num @ [ Arch.Call (f, List.length args) ]
   | Let (x, e1, e2) ->
-      let e1_code = compile_expr venv e1 name num in
-      let e2_code = compile_expr (Local x :: venv) e2 name num in
-      e1_code @ e2_code @ [ Arch.Swap; Arch.Pop ]
+      compile_expr venv e1 name num
+      @ compile_expr (Local x :: venv) e2 name num
+      @ [ Arch.Swap; Arch.Pop ]
   | If (cond, e1, e2) ->
       let else_label = LabelGen.else_fresh () in
       let end_label = LabelGen.end_fresh () in
@@ -163,16 +177,14 @@ let compile_fun (fn : Flat.fn) =
     [ Arch.Label name :: compile_expr venv body name num; [ Arch.Ret num ] ]
 
 let preprocess (expr : expr) =
-  let main = ("main", [], remove_funs expr) in
-  let fns = collect_funs expr in
-  main :: fns
+  ("main", [], remove_funs expr) :: collect_funs expr
 
 let compile (funs : Flat.fn list) =
-  let code = List.concat_map funs ~f:compile_fun in
-  [ Arch.Call ("main", 0); Arch.Exit ] @ code
+  [ Arch.Call ("main", 0); Arch.Exit ] @ List.concat_map funs ~f:compile_fun
 
 let parse x = Sexp.of_string x |> parse_sexp
 let preprocess_and_compile prog = prog |> preprocess |> compile
+let res = Array.of_list
 
 let string_of_prim = function
   | Add -> "add"

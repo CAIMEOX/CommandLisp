@@ -141,3 +141,13 @@ module RetStack = struct
       (run_linked_function reg fn_index fn_label);
     run_function (name "call" reg)
 end
+
+module EntityStack = struct
+  type direction = X | Y | Z | RX | RY | RZ
+
+  type entity_stack = {
+    entity_type : string;
+    stack_size : int;
+    direction : direction;
+  }
+end

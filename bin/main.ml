@@ -1,29 +1,62 @@
 open Parse
 
-let fact (e : expr) =
+(* let fact i =
+     Letfn
+       ( "fact",
+         [ "n" ],
+         If
+           ( Var "n",
+             Prim
+               ( Mul,
+                 [ Var "n"; Prim (Self, [ Prim (Add, [ Var "n"; Cst (-1) ]) ]) ] ),
+             Cst 1 ),
+         App ("fact", [ Cst i ]) )
+
+   let p_fact = preprocess_and_compile (fact 10)
+   let res = Array.of_list p_fact |> Vm.initVm |> Vm.run
+   let () = Printf.printf "fact(10) = %d\n" res *)
+
+let fib i =
   Letfn
     ( "fact",
       [ "n" ],
       If
         ( Var "n",
-          Prim
-            ( Mul,
-              [ Var "n"; Prim (Self, [ Prim (Add, [ Var "n"; Cst (-1) ]) ]) ] ),
+          If
+            ( Prim (Add, [ Var "n"; Cst (-1) ]),
+              Prim
+                ( Add,
+                  [
+                    Prim (Self, [ Prim (Add, [ Var "n"; Cst (-1) ]) ]);
+                    Prim (Self, [ Prim (Add, [ Var "n"; Cst (-2) ]) ]);
+                  ] ),
+              Cst 1 ),
           Cst 1 ),
-      e )
+      App ("fact", [ Cst i ]) )
 
-let p_fact = preprocess_and_compile (fact (Cst 3))
-let encoded = Array.of_list p_fact |> Arch.encode
-let ccd = String.concat "\n" encoded
+let p_fib = preprocess_and_compile (fib 25)
+let res1 = Array.of_list p_fib |> Vm.initVm |> Vm.run
+let () = Printf.printf "fib(25) = %d\n" res1
 
-(* let () = print_endline ccd *)
-let removed_tags = Arch.split_tags ccd
+let fact_tail x =
+  Letfn
+    ( "fact_tail",
+      [ "n"; "acc" ],
+      If
+        ( Var "n",
+          Prim
+            ( Self,
+              [
+                Prim (Add, [ Var "n"; Cst (-1) ]);
+                Prim (Add, [ Var "acc"; Var "n" ]);
+              ] ),
+          Var "acc" ),
+      Letfn
+        ( "fact",
+          [ "n" ],
+          App ("fact_tail", [ Var "n"; Cst 1 ]),
+          App ("fact", [ Cst x ]) ) )
 
-let () =
-  List.iter (fun (x, y) -> print_endline (x ^ " " ^ y)) (List.rev removed_tags)
-
-let () = Arch.save_all_funs removed_tags
-
-open Mcs
-
-let _ = generate_mc_structure_by_size 1 1 1
+let p_fact_tail = preprocess_and_compile (fact_tail 25)
+let res2 = Array.of_list p_fact_tail |> Vm.initVm |> Vm.run
+let () = Printf.printf "fact(25) = %d\n" res2
