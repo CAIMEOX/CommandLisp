@@ -10,6 +10,13 @@ let append_to_file (filename : string) (content : string) : unit =
   Printf.fprintf oc "%s\n" content;
   close_out oc
 
+let print_list l (ident : int) =
+  List.iter
+    (fun x ->
+      print_string (String.make ident ' ');
+      print_endline x)
+    l
+
 let calls = sprintf "calls %s"
 let ( >> ) = sprintf "%s\n%s"
 let flatten = String.concat "\n"

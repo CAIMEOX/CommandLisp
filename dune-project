@@ -11,7 +11,7 @@
 
 (maintainers "CAIMEO")
 
-(license LICENSE)
+(license GPL)
 
 (documentation https://github.com/CAIMEOX/CommandLisp)
 

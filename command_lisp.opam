@@ -4,7 +4,7 @@ synopsis: "Command Lisp"
 description: "A tool that compiles lisp to mcfunction"
 maintainer: ["CAIMEO"]
 authors: ["CAIMEO"]
-license: "LICENSE"
+license: "GPL"
 homepage: "https://github.com/CAIMEOX/CommandLisp"
 doc: "https://github.com/CAIMEOX/CommandLisp"
 bug-reports: "https://github.com/CAIMEOX/CommandLisp/issues"

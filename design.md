@@ -1,9 +1,20 @@
 # Design of Command Lisp
-## Goals
-- A **turing complete** language with **s-expression** syntax (named Command Lisp)
-- Support inter-operation with Minecraft Bedrock Command System (Always support the **newest** standard)
-- Trans-compile CommandLisp to file format `mcstructure` and `mcfunction`
-- High performance with **Low Cost Abstraction**
+
+## Objectives
+
+The primary objectives of the Command Lisp language are as follows:
+
+- **Turing Completeness**: Command Lisp aims to be a Turing-complete language, providing a comprehensive set of computational capabilities.
+
+- **S-expression Syntax**: The language adopts an S-expression syntax, enhancing readability and expressiveness in code.
+
+- **Compatibility with Minecraft Bedrock Command System**: Command Lisp is designed to seamlessly interoperate with the Minecraft Bedrock Command System, ensuring compatibility with the latest standards.
+
+- **Trans-compilation to `mcstructure` and `mcfunction`**: Command Lisp includes a trans-compiler to generate code in the `mcstructure` and `mcfunction` file formats, facilitating integration with the Minecraft Bedrock platform.
+
+- **High Performance with Low Cost Abstraction**: Command Lisp prioritizes high performance while minimizing abstraction costs. This approach ensures efficient execution of commands within the Minecraft Bedrock environment.
+
+These objectives collectively define the foundation of Command Lisp, emphasizing its versatility, compatibility, and efficiency in the context of Minecraft Bedrock command development.
 
 ## Command Lisp Workflow
 ```mermaid
@@ -16,21 +27,43 @@ graph LR
 
   CS --> R[mcstructure + mcfunction]
 ```
-Command Lisp project is mainly a compiler which compiles CL code to CASM.
-- `Main`: A CLI of Command Lisp
-- `Parse`: The main parser
-  - `parse`: parse source code into `expr`
-  - `preprocess_and_compile`: insert main function and compile `expr` into `instr list` (CASM)
-- `Control`: Implement of different memory layout (See world model) and algorithm to automatically assign registers
-- `Command`: Provides all command generator
-  - `ScoreBoard`: Scoreboard command 
-  - `Execute`: Execute command
-- `Util`: File and string related operations (And McFunction handler)
-- `Nbt`: Named Binary Tag encoder (incomplete but enough for `mcstructure`)
-  - `encode_nbt`: Encode nbt type to string
-- `Mcs`: Handle mcstructure and metadata of command blocks (Save command system to files)
-- `Vm`: A simulator (stack virtual machine) for CASM (incomplete: unable to handle syscall)
-- `Arch`: A trans-compiler that compiles CASM into a command system
+The Command Lisp project primarily functions as a compiler, translating CL code into CASM and generating files. The project is structured into various **modules** to handle distinct aspects of the compilation process:
+
+- **Main Module (`Main`)**
+  - Serves as the Command Line Interface (CLI) for Command Lisp.
+
+- **Parsing Module (`Parse`)**
+  - `parse`: Responsible for parsing source code into an intermediate representation (`expr`).
+  - `preprocess_and_compile`: Inserts the main function and compiles the `expr` into a list of instructions (`instr list`), represented in CASM.
+
+- **Control Module (`Control`)**
+  - Implements different memory layouts, referring to the world model, and employs algorithms for automatic register assignment.
+
+- **Command Module (`Command`)**
+  - Houses various command generators, including:
+    - `ScoreBoard`: Generates scoreboard commands.
+    - `Execute`: Facilitates the execution of commands.
+
+- **Utility Module (`Util`)**
+  - Manages file and string-related operations, including handling McFunction.
+
+- **Nbt Module (`Nbt`)**
+  - Handles Named Binary Tag (NBT) encoding, albeit incompletely, yet sufficient for `mcstructure`.
+    - `encode_nbt`: Encodes NBT types into strings.
+
+- **Mcs Module (`Mcs`)**
+  - Manages `mcstructure` and metadata of command blocks, allowing for the saving of the command system to files.
+
+- **Vm Module (`Vm`)**
+  - Features a simulator, specifically a stack virtual machine, for CASM. Note: It remains incomplete and is currently unable to handle syscalls.
+
+- **Arch Module (`Arch`)**
+  - Serves as a trans-compiler, converting CASM into a command system.
+
+This modular design ensures a structured and organized approach to the development of Command Lisp, enhancing maintainability and extensibility throughout its various components.
+
+## Syntax of Command Lisp
+
 
 ## Assembly Of Command Lisp
 Command Lisp will first compiles source codes into CASM (Command Assembly) running on a specific stack machine.
@@ -192,12 +225,27 @@ Tellraw / Titleraw:
 - Set up: Reading values to specific registers
 - Run command `tellraw / titleraw`
 
-### Minecraft Structure 
-The generate CL system (One or more `mcstructure` files) contains the following programs (One Program is a sequence of command blocks)
-- Init: Initialize the system. (A normal program but with a button in the head.)
-- Loop: A loop program is a sequence starting with a **repeated command block** 
-- Normal: A normal program is a sequence staring with an **impulse command block**.
-- Entry point: A normal program but with a button in the head.
+### Minecraft Structure
+
+Within the generated Command Lisp (CL) system, comprised of one or more `mcstructure` and `mcfunction` files, the following program types are delineated. Each program is essentially a sequence of command blocks:
+
+- **Init Program:**
+  - Description: Initializes the system.
+  - Structure: Resembles a normal program but incorporates a button in the header.
+
+- **Loop Program:**
+  - Description: A sequence that commences with a repeated command block.
+  - Structure: Consists of a series of command blocks, with the initiation being marked by a repeated command block.
+
+- **Normal Program:**
+  - Description: A sequence that commences with an impulse command block.
+  - Structure: Comprises a series of command blocks, starting with an impulse command block.
+
+- **Entry Point Program:**
+  - Description: Essentially a normal program but distinguished by the presence of a button in the header.
+  - Structure: Resembles a normal program with the addition of a button at the beginning.
+
+This categorization facilitates a clear distinction between different program types within the Minecraft structure generated by Command Lisp. Each type serves a specific purpose, contributing to the overall functionality and organization of the system.
 
 > The following features are not designed yet and may not be implemented.
 ### Multithreading

@@ -1,4 +1,11 @@
+; (executable
+;  (public_name command_lisp)
+;  (name main)
+;  (modules main command parse arch vm util nbt mcs control)
+;  (libraries core))
+
 (executable
- (public_name command_lisp)
  (name main)
- (libraries core))
+ (public_name cl)
+ (modules main)
+ (libraries command_lisp core))

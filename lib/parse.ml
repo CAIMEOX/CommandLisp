@@ -180,7 +180,8 @@ let preprocess (expr : expr) =
   ("main", [], remove_funs expr) :: collect_funs expr
 
 let compile (funs : Flat.fn list) =
-  [ Arch.Call ("main", 0); Arch.Exit ] @ List.concat_map funs ~f:compile_fun
+  [ Arch.Label "entry"; Arch.Call ("main", 0); Arch.Exit ]
+  @ List.concat_map funs ~f:compile_fun
 
 let parse x = Sexp.of_string x |> parse_sexp
 let preprocess_and_compile prog = prog |> preprocess |> compile

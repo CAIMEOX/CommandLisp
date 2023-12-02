@@ -1,62 +1,29 @@
-open Parse
+let repl () =
+  let rec loop () =
+    print_string "> ";
+    let line = read_line () in
+    print_endline line;
+    loop ()
+  in
+  loop ()
 
-(* let fact i =
-     Letfn
-       ( "fact",
-         [ "n" ],
-         If
-           ( Var "n",
-             Prim
-               ( Mul,
-                 [ Var "n"; Prim (Self, [ Prim (Add, [ Var "n"; Cst (-1) ]) ]) ] ),
-             Cst 1 ),
-         App ("fact", [ Cst i ]) )
+let load_file file =
+  let ic = open_in file in
+  let rec loop () =
+    try
+      let line = input_line ic in
+      print_endline line;
+      loop ()
+    with End_of_file -> ()
+  in
+  loop ();
+  close_in ic
 
-   let p_fact = preprocess_and_compile (fact 10)
-   let res = Array.of_list p_fact |> Vm.initVm |> Vm.run
-   let () = Printf.printf "fact(10) = %d\n" res *)
+let usage = "Usage: command_lisp [repl|run <file>]"
 
-let fib i =
-  Letfn
-    ( "fact",
-      [ "n" ],
-      If
-        ( Var "n",
-          If
-            ( Prim (Add, [ Var "n"; Cst (-1) ]),
-              Prim
-                ( Add,
-                  [
-                    Prim (Self, [ Prim (Add, [ Var "n"; Cst (-1) ]) ]);
-                    Prim (Self, [ Prim (Add, [ Var "n"; Cst (-2) ]) ]);
-                  ] ),
-              Cst 1 ),
-          Cst 1 ),
-      App ("fact", [ Cst i ]) )
-
-let p_fib = preprocess_and_compile (fib 25)
-let res1 = Array.of_list p_fib |> Vm.initVm |> Vm.run
-let () = Printf.printf "fib(25) = %d\n" res1
-
-let fact_tail x =
-  Letfn
-    ( "fact_tail",
-      [ "n"; "acc" ],
-      If
-        ( Var "n",
-          Prim
-            ( Self,
-              [
-                Prim (Add, [ Var "n"; Cst (-1) ]);
-                Prim (Add, [ Var "acc"; Var "n" ]);
-              ] ),
-          Var "acc" ),
-      Letfn
-        ( "fact",
-          [ "n" ],
-          App ("fact_tail", [ Var "n"; Cst 1 ]),
-          App ("fact", [ Cst x ]) ) )
-
-let p_fact_tail = preprocess_and_compile (fact_tail 25)
-let res2 = Array.of_list p_fact_tail |> Vm.initVm |> Vm.run
-let () = Printf.printf "fact(25) = %d\n" res2
+let () =
+  let args = Array.to_list Sys.argv in
+  match args with
+  | _ :: "repl" :: _ -> repl ()
+  | _ :: "run" :: file :: _ -> load_file file
+  | _ -> print_endline usage
