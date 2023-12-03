@@ -1,4 +1,4 @@
 (test
  (name test)
- (modules test)
+ (modules test info exp)
  (libraries command_lisp alcotest))

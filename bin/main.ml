@@ -1,25 +1,44 @@
+open Command_lisp
+open Vm
+open Parse
+open Compile
+
+let compile_and_run content =
+  content |> parse |> preprocess_and_compile |> Array.of_list |> initVm |> run
+
 let repl () =
   let rec loop () =
     print_string "> ";
-    let line = read_line () in
-    print_endline line;
-    loop ()
+    try
+      let line = read_line () in
+      if line = "exit" then print_endline "Bye!"
+      else
+        try
+          let r = line |> compile_and_run |> string_of_int in
+          print_endline r
+        with e ->
+          print_endline (Printexc.to_string e);
+          loop ()
+    with End_of_file -> print_endline "Bye!"
   in
   loop ()
 
 let load_file file =
   let ic = open_in file in
+  let content = ref "" in
   let rec loop () =
     try
       let line = input_line ic in
-      print_endline line;
+      content := !content ^ line ^ "\n";
       loop ()
     with End_of_file -> ()
   in
   loop ();
-  close_in ic
+  close_in ic;
+  try compile_and_run !content |> ignore
+  with e -> print_endline (Printexc.to_string e)
 
-let usage = "Usage: command_lisp [repl|run <file>]"
+let usage = "Usage: clc [repl|run <file>]"
 
 let () =
   let args = Array.to_list Sys.argv in

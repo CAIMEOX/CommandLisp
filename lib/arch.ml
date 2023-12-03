@@ -1,8 +1,6 @@
 let max_mem : int = 128
 let ret_stack_size = ref 0
 
-type label = string
-
 type instr =
   | Cst of int
   | Pop
@@ -11,34 +9,16 @@ type instr =
   | Mul
   | Sub
   | Div
-  | Call of label * int
+  | Call of string * int
   | Var of int
   | Ret of int
-  | Label of label
-  | IfZero of label
-  | Goto of label
+  | Label of string
+  | IfZero of string
+  | Goto of string
   | Syscall
   | Exit
 
-let string_of_instr instr =
-  match instr with
-  | Cst i -> "Cst " ^ string_of_int i
-  | Add -> "Add"
-  | Sub -> "Sub"
-  | Mul -> "Mul"
-  | Div -> "Div"
-  | Var i -> "Var " ^ string_of_int i
-  | Pop -> "Pop"
-  | Swap -> "Swap"
-  | Label l -> "Label " ^ l
-  | Ret n -> "Ret " ^ string_of_int n
-  | Call (f, n) -> "Call " ^ f ^ " " ^ string_of_int n
-  | IfZero l -> "IfZero " ^ l
-  | Goto l -> "Goto " ^ l
-  | Exit -> "Exit"
-  | Syscall -> "Syscall"
-
-let get_label_index (instr : instr array) (label : label) : int =
+let get_label_index (instr : instr array) (label : string) : int =
   let rec aux i =
     if i >= Array.length instr then failwith "Label not found"
     else if instr.(i) = Label label then i
@@ -52,7 +32,7 @@ open Control
 let ( >> ) = Util.( >> )
 let compile_pop = StackFrame.pop max_mem
 
-let compile_if0 (t : label) =
+let compile_if0 (t : string) =
   compile_pop "x0"
   >> Execute.execute
        (Execute.cond_score_eq "cpu x0" "cpu a0")
@@ -140,28 +120,6 @@ let encode (instrs : instr array) : string list =
       | Syscall -> "syscall")
     instrs
   |> Array.to_list
-
-let rec print_instr (instrs : instr list) : string =
-  match instrs with
-  | [] -> ""
-  | instr :: instrs -> (
-      match instr with
-      | Pop -> "Pop\n" ^ print_instr instrs
-      | Swap -> "Swap\n" ^ print_instr instrs
-      | Add -> "Add\n" ^ print_instr instrs
-      | Mul -> "Mul\n" ^ print_instr instrs
-      | Sub -> "Sub\n" ^ print_instr instrs
-      | Div -> "Div\n" ^ print_instr instrs
-      | Call (label, n) ->
-          "Call " ^ label ^ " " ^ string_of_int n ^ "\n" ^ print_instr instrs
-      | Ret n -> "Ret " ^ string_of_int n ^ "\n" ^ print_instr instrs
-      | IfZero r -> "IfZero " ^ r ^ "\n" ^ print_instr instrs
-      | Var n -> "Var " ^ string_of_int n ^ "\n" ^ print_instr instrs
-      | Cst i -> "Cst " ^ string_of_int i ^ "\n" ^ print_instr instrs
-      | Label l -> "Label " ^ l ^ ":\n" ^ print_instr instrs
-      | Syscall -> "Syscall\n" ^ print_instr instrs
-      | Goto i -> "Goto " ^ i ^ "\n" ^ print_instr instrs
-      | Exit -> "Exit\n" ^ print_instr instrs)
 
 let split_tags (commands : string) : (string * string) list =
   let lines = String.split_on_char '\n' commands in
