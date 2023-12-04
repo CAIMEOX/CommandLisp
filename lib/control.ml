@@ -150,4 +150,14 @@ module EntityStack = struct
     stack_size : int;
     direction : direction;
   }
+
+  open Arch
+
+  let compile_instr x = x (* to do *)
+
+  let compile instrs =
+    let rec aux rest res =
+      match rest with [] -> res | h :: t -> aux t (res @ compile_instr h)
+    in
+    aux instrs []
 end

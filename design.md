@@ -16,6 +16,20 @@ The primary objectives of the Command Lisp language are as follows:
 
 These objectives collectively define the foundation of Command Lisp, emphasizing its versatility, compatibility, and efficiency in the context of Minecraft Bedrock command development.
 
+## Why Ocaml
+A long time ago, when I started this project, my language of choice was **golang**, then changed to **rust**, after which the project stopped for two years, and recently I started working on it again. Now I'm more familiar with functional languages (Such as Haskell and Ocaml) and something with fancy type system (Lean, Idris and etc). But in the end I change the language to **Ocaml**. 
+
+I am not a super fan of Ocaml but it is well-known that ML (including SML and Ocaml) language might be the best choice for a compiler. Here is an unordered list of language features that might be important to make compilers (Also answer the question: Why Ocaml).
+
+- **Tail recursion is optimized**
+    Ocaml tend to handle with recursive procedures well because of the tail recursion optimization.
+- **Garbage collection**
+    Focus on the implementation of core data structures without the need to manually control memory allocation. Ocaml has, perhaps the best gc which is as fast as the C++ malloc/free and maybe even faster sometimes.
+- **Algebraic Data Types**
+    ADT are just plain wonderful for describing things like ASTs (abstract syntax trees). 
+- **The Module System**
+    Ocaml has strong module system which supports separate compilation and polymorphism. (The best module system I think)
+
 ## Command Lisp Workflow
 ```mermaid
 graph LR
@@ -34,6 +48,8 @@ The Command Lisp project primarily functions as a compiler, translating CL code 
 
 - **Parsing Module (`Parse`)**
   - `parse`: Responsible for parsing source code into an intermediate representation (`expr`).
+
+- **Compile Module (`Compile`)**
   - `preprocess_and_compile`: Inserts the main function and compiles the `expr` into a list of instructions (`instr list`), represented in CASM.
 
 - **Control Module (`Control`)**
@@ -56,6 +72,7 @@ The Command Lisp project primarily functions as a compiler, translating CL code 
 
 - **Vm Module (`Vm`)**
   - Features a simulator, specifically a stack virtual machine, for CASM. Note: It remains incomplete and is currently unable to handle syscalls.
+  - Real VM is a virtual machine based on function pointer which is much more related to Minecraft memory structure. 
 
 - **Arch Module (`Arch`)**
   - Serves as a trans-compiler, converting CASM into a command system.

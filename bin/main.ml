@@ -3,10 +3,13 @@ open Vm
 open Parse
 open Compile
 
+let weclome_message = "Welcome to Command Lisp. \nType 'exit' to quit."
+
 let compile_and_run content =
   content |> parse |> preprocess_and_compile |> Array.of_list |> initVm |> run
 
 let repl () =
+  print_endline weclome_message;
   let rec loop () =
     print_string "> ";
     try
@@ -15,10 +18,9 @@ let repl () =
       else
         try
           let r = line |> compile_and_run |> string_of_int in
-          print_endline r
-        with e ->
-          print_endline (Printexc.to_string e);
+          print_endline r;
           loop ()
+        with e -> print_endline (Printexc.to_string e)
     with End_of_file -> print_endline "Bye!"
   in
   loop ()

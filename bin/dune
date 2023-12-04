@@ -6,6 +6,6 @@
 
 (executable
  (name main)
- (public_name cl)
+ (public_name clc)
  (modules main)
  (libraries command_lisp core))

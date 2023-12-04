@@ -36,3 +36,41 @@ module Execute = struct
   let cond_score_ge = cond_score_binop ">="
   let execute = sprintf "execute %s run %s"
 end
+
+module TargetSelector = struct
+  type variable = Nearest | Random | AllPlayers | AllEntities | Self
+
+  type arguments =
+    | X of int
+    | Y of int
+    | Z of int
+    | Distance of int
+    | Level of int
+    | Name of string
+    | Tag of string
+    | Team of string
+    | Gamemode of string
+    | Sort of string
+    | NBT of string
+    | Scores of string
+    | Advancements of string
+    | Predicate of string
+    | Limit of int
+    | Variable of variable
+
+  let string_of_variable = function
+    | Nearest -> "@p"
+    | Random -> "@r"
+    | AllPlayers -> "@a"
+    | AllEntities -> "@e"
+    | Self -> "@s"
+end
+
+module Tag = struct
+  open Printf
+
+  let add = sprintf "tag %s add %s"
+  let remove = sprintf "tag %s remove %s"
+  let list = sprintf "tag %s list"
+  let clear = sprintf "tag %s remove %s"
+end

@@ -89,7 +89,6 @@ let run vm =
         vm.pc <- pop_ret vm
     | Call (f, _) ->
         push_ret vm vm.pc;
-        (* here requires vm.pc. should I give every call a label after it *)
         vm.pc <- get_label vm.code f
     | IfZero t ->
         let a = pop vm in
@@ -139,10 +138,17 @@ module RealVm = struct
 
   type string_list_map = (string, instr list) Hashtbl.t
 
+  type registers = {
+    x : int array; [@length 10]
+    a : int array; [@length 10]
+    t : int array; [@length 10]
+  }
+
   type vm = {
     funs : string_list_map;
     mutable stack : int array;
     call_stack : string array;
+    registers : registers;
     mutable fp : string;
     mutable csp : int;
     mutable sp : int;
@@ -154,17 +160,34 @@ module RealVm = struct
       stack = Array.make 100 0;
       call_stack = Array.make 30 "";
       fp = "entry";
+      registers =
+        { x = Array.make 10 0; a = Array.make 10 0; t = Array.make 10 0 };
       csp = 0;
       sp = 0;
     }
 
-  let pop vm =
+  let pop_to_reg vm regi =
     vm.sp <- vm.sp - 1;
-    vm.stack.(vm.sp)
+    vm.registers.x.(regi) <- vm.stack.(vm.sp)
 
-  let push vm v =
-    vm.stack.(vm.sp) <- v;
+  let push_from_reg vm regi =
+    vm.stack.(vm.sp) <- vm.registers.x.(regi);
     vm.sp <- vm.sp + 1
+
+  let perf_add vm reg1 reg2 =
+    vm.registers.x.(reg1) <- vm.registers.x.(reg1) + vm.registers.x.(reg2)
+
+  let perf_sub vm reg1 reg2 =
+    vm.registers.x.(reg1) <- vm.registers.x.(reg1) - vm.registers.x.(reg2)
+
+  let perf_mul vm reg1 reg2 =
+    vm.registers.x.(reg1) <- vm.registers.x.(reg1) * vm.registers.x.(reg2)
+
+  let perf_div vm reg1 reg2 =
+    vm.registers.x.(reg1) <- vm.registers.x.(reg1) / vm.registers.x.(reg2)
+
+  let load_to_reg vm regi v = vm.registers.x.(regi) <- v
+  let read_from_reg vm regi = vm.registers.x.(regi)
 
   let push_ret vm v =
     vm.call_stack.(vm.csp) <- v;
@@ -183,47 +206,53 @@ module RealVm = struct
           counter := !counter + 1;
           match instr with
           | Cst i ->
-              push vm i;
+              load_to_reg vm 0 i;
+              push_from_reg vm 0;
               run vm rest
           | Add ->
-              let a = pop vm in
-              let b = pop vm in
-              push vm (a + b);
+              pop_to_reg vm 0;
+              pop_to_reg vm 1;
+              perf_add vm 0 1;
+              push_from_reg vm 0;
               run vm rest
           | Sub ->
-              let a = pop vm in
-              let b = pop vm in
-              push vm (a - b);
+              pop_to_reg vm 0;
+              pop_to_reg vm 1;
+              perf_sub vm 0 1;
+              push_from_reg vm 0;
               run vm rest
           | Mul ->
-              let a = pop vm in
-              let b = pop vm in
-              push vm (a * b);
+              pop_to_reg vm 0;
+              pop_to_reg vm 1;
+              perf_mul vm 0 1;
+              push_from_reg vm 0;
               run vm rest
           | Div ->
-              let a = pop vm in
-              let b = pop vm in
-              push vm (a / b);
+              pop_to_reg vm 0;
+              pop_to_reg vm 1;
+              perf_div vm 0 1;
+              push_from_reg vm 0;
               run vm rest
           | Var i ->
-              push vm vm.stack.(vm.sp - i - 1);
+              load_to_reg vm 0 vm.stack.(vm.sp - i - 1);
+              push_from_reg vm 0;
               run vm rest
           | Pop ->
-              ignore (pop vm);
+              pop_to_reg vm 0;
               run vm rest
           | Swap ->
-              let a = pop vm in
-              let b = pop vm in
-              push vm a;
-              push vm b;
+              pop_to_reg vm 0;
+              pop_to_reg vm 1;
+              push_from_reg vm 0;
+              push_from_reg vm 1;
               run vm rest
           | Label x ->
               vm.fp <- x;
               run vm (Hashtbl.find vm.funs x)
           | Ret n ->
-              let r = pop vm in
+              pop_to_reg vm 0;
               vm.sp <- vm.sp - n;
-              push vm r;
+              push_from_reg vm 0;
               vm.fp <- pop_ret vm;
               run vm (Hashtbl.find vm.funs vm.fp)
           | Call (f, _) -> (
@@ -234,15 +263,17 @@ module RealVm = struct
                   run vm (Hashtbl.find vm.funs f)
               | _ -> failwith "Call must be followed by a label")
           | IfZero t ->
-              let a = pop vm in
-              if a = 0 then (
+              pop_to_reg vm 0;
+              if read_from_reg vm 0 = 0 then (
                 vm.fp <- t;
                 run vm (Hashtbl.find vm.funs t))
               else run vm rest
           | Goto t ->
               vm.fp <- t;
               run vm (Hashtbl.find vm.funs t)
-          | Exit -> pop vm
+          | Exit ->
+              pop_to_reg vm 0;
+              read_from_reg vm 0
           | _ -> failwith "Not implemented")
     in
     run vm (Hashtbl.find vm.funs vm.fp)

@@ -12,7 +12,8 @@ mkShell {
   ]);
 
   shellHook = ''
-    alias run="dune exec cl"
+    alias run="dune exec clc"
+    alias clc="dune exec clc"
     alias build="dune build @fmt --auto-promote"
     alias fmt="dune fmt"
     alias repl="dune utop"
