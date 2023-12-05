@@ -25,161 +25,157 @@ let get_label_index (instr : instr array) (label : string) : int =
     else aux (i + 1)
   in
   aux 0
+(* open Control *)
+(* let compile_pop = StackFrame.pop max_mem
 
-open Command
-open Control
+   let compile_if0 (t : string) =
+     compile_pop "x0"
+     >> Execute.execute
+          (Execute.cond_score_eq "cpu x0" "cpu a0")
+          (StackFrame.run_function t)
 
-let ( >> ) = Util.( >> )
-let compile_pop = StackFrame.pop max_mem
+   let compile_push v = Register.reg_set "t0" v >> StackFrame.push max_mem "t0"
 
-let compile_if0 (t : string) =
-  compile_pop "x0"
-  >> Execute.execute
-       (Execute.cond_score_eq "cpu x0" "cpu a0")
-       (StackFrame.run_function t)
+   let compile_swap r1 r2 =
+     StackFrame.pop max_mem r1 >> StackFrame.pop max_mem r2
+     >> StackFrame.push max_mem r1 >> StackFrame.push max_mem r2
 
-let compile_push v = Register.reg_set "t0" v >> StackFrame.push max_mem "t0"
+   let compile_prim_op op r1 r2 =
+     StackFrame.pop max_mem r1 >> StackFrame.pop max_mem r2
+     >> Register.reg_op op r1 r2 >> StackFrame.push max_mem r1
 
-let compile_swap r1 r2 =
-  StackFrame.pop max_mem r1 >> StackFrame.pop max_mem r2
-  >> StackFrame.push max_mem r1 >> StackFrame.push max_mem r2
+   (*
+     | x0 <- pop
+     | sp <- sp - n
+     | Ret.pop t1
+     | push stack t0
+     | goto t1
+     *)
+   let compile_ret n =
+     compile_pop "t0" (* res *)
+     >> ScoreBoard.unary_sub "cpu sp" n
+     >> RetStack.pop !ret_stack_size "t1"
+     >> StackFrame.push max_mem "t0"
+     >> "function ret_stack_control_t0"
 
-let compile_prim_op op r1 r2 =
-  StackFrame.pop max_mem r1 >> StackFrame.pop max_mem r2
-  >> Register.reg_op op r1 r2 >> StackFrame.push max_mem r1
+   (*
+     | cpu t0 <- cpu sp
+     | cpu t0 -= n
+     | cpu t1 <- StackFrame.cpu t0]
+     | push cpu t1
+     *)
+   let compile_var n =
+     ScoreBoard.binop_assign "cpu t0" "cpu sp"
+     >> ScoreBoard.unary_sub "cpu t0" (n + 1)
+     >> StackFrame.access max_mem "t1" "t0"
+     >> StackFrame.push max_mem "t1"
 
-(*
-  | x0 <- pop 
-  | sp <- sp - n 
-  | Ret.pop t1
-  | push stack t0
-  | goto t1
-  *)
-let compile_ret n =
-  compile_pop "t0" (* res *)
-  >> ScoreBoard.unary_sub "cpu sp" n
-  >> RetStack.pop !ret_stack_size "t1"
-  >> StackFrame.push max_mem "t0"
-  >> "function ret_stack_control_t0"
+   let call_index = ref 0
 
-(*
-  | cpu t0 <- cpu sp
-  | cpu t0 -= n
-  | cpu t1 <- StackFrame.cpu t0]
-  | push cpu t1
-  *)
-let compile_var n =
-  ScoreBoard.binop_assign "cpu t0" "cpu sp"
-  >> ScoreBoard.unary_sub "cpu t0" (n + 1)
-  >> StackFrame.access max_mem "t1" "t0"
-  >> StackFrame.push max_mem "t1"
+   let next () =
+     let n = !call_index in
+     call_index := n + 1;
+     (n, "fn_call_" ^ string_of_int n)
 
-let call_index = ref 0
+   let compile_call f =
+     let i, label = next () in
+     let _ = RetStack.link "t0" i label in
+     "function " ^ f >> RetStack.push !ret_stack_size "t0" >> "# " ^ label
 
-let next () =
-  let n = !call_index in
-  call_index := n + 1;
-  (n, "fn_call_" ^ string_of_int n)
+   let compile_syscall = ""
 
-let compile_call f =
-  let i, label = next () in
-  let _ = RetStack.link "t0" i label in
-  "function " ^ f >> RetStack.push !ret_stack_size "t0" >> "# " ^ label
+   let compute_ret_stack_size (instrs : instr array) : int =
+     let rec aux i acc =
+       if i >= Array.length instrs then acc
+       else
+         match instrs.(i) with
+         | Call _ -> aux (i + 1) (acc + 1)
+         | _ -> aux (i + 1) acc
+     in
+     aux 0 0
 
-let compile_syscall = ""
+   let encode (instrs : instr array) : string list =
+     ret_stack_size := compute_ret_stack_size instrs;
+     Array.map
+       (function
+         (* TODO: assign registers by module Control *)
+         | Pop -> compile_pop "a0"
+         | Swap -> compile_swap "a0" "a1"
+         | Add -> compile_prim_op "+=" "a0" "a1"
+         | Mul -> compile_prim_op "*=" "a0" "a1"
+         | Sub -> compile_prim_op "-=" "a0" "a1"
+         | Div -> compile_prim_op "/=" "a0" "a1"
+         | Cst i -> compile_push i
+         | Label l -> "# " ^ l ^ ":"
+         | Var n -> compile_var n
+         | Call (f, _) -> compile_call f
+         | Ret n -> compile_ret n
+         | IfZero t -> compile_if0 t
+         | Goto i -> "function " ^ i
+         | Exit -> "function init"
+         | Syscall -> "syscall")
+       instrs
+     |> Array.to_list
 
-let compute_ret_stack_size (instrs : instr array) : int =
-  let rec aux i acc =
-    if i >= Array.length instrs then acc
-    else
-      match instrs.(i) with
-      | Call _ -> aux (i + 1) (acc + 1)
-      | _ -> aux (i + 1) acc
-  in
-  aux 0 0
+   let split_tags (commands : string) : (string * string) list =
+     let lines = String.split_on_char '\n' commands in
+     let result = ref [] in
+     let cur_title = ref "# entry:" in
+     for i = 0 to List.length lines - 1 do
+       let line = List.nth lines i in
+       if String.length line > 0 && line.[0] = '#' then cur_title := line
+       else result := (!cur_title, line) :: !result
+     done;
+     !result
+   (* split the string with the line starts with # *)
 
-let encode (instrs : instr array) : string list =
-  ret_stack_size := compute_ret_stack_size instrs;
-  Array.map
-    (function
-      (* TODO: assign registers by module Control *)
-      | Pop -> compile_pop "a0"
-      | Swap -> compile_swap "a0" "a1"
-      | Add -> compile_prim_op "+=" "a0" "a1"
-      | Mul -> compile_prim_op "*=" "a0" "a1"
-      | Sub -> compile_prim_op "-=" "a0" "a1"
-      | Div -> compile_prim_op "/=" "a0" "a1"
-      | Cst i -> compile_push i
-      | Label l -> "# " ^ l ^ ":"
-      | Var n -> compile_var n
-      | Call (f, _) -> compile_call f
-      | Ret n -> compile_ret n
-      | IfZero t -> compile_if0 t
-      | Goto i -> "function " ^ i
-      | Exit -> "function init"
-      | Syscall -> "syscall")
-    instrs
-  |> Array.to_list
+   let format_tag tag =
+     let tag = String.sub tag 2 (String.length tag - 2) in
+     let tag = String.split_on_char ':' tag in
+     List.nth tag 0
 
-let split_tags (commands : string) : (string * string) list =
-  let lines = String.split_on_char '\n' commands in
-  let result = ref [] in
-  let cur_title = ref "# entry:" in
-  for i = 0 to List.length lines - 1 do
-    let line = List.nth lines i in
-    if String.length line > 0 && line.[0] = '#' then cur_title := line
-    else result := (!cur_title, line) :: !result
-  done;
-  !result
-(* split the string with the line starts with # *)
+   let file_name = Printf.sprintf "functions/%s.mcfunction"
 
-let format_tag tag =
-  let tag = String.sub tag 2 (String.length tag - 2) in
-  let tag = String.split_on_char ':' tag in
-  List.nth tag 0
+   let save_all_funs (fn_list : (string * string) list) =
+     let cur_title = ref (fst (List.hd fn_list)) in
+     let content = ref "" in
+     fn_list
+     |> List.iter (fun (title, fn) ->
+            if title <> !cur_title then (
+              let tag = format_tag !cur_title in
+              Util.write_to_file (file_name tag) !content;
+              cur_title := title;
+              content := "function " ^ tag)
+            else content := fn >> !content)
 
-let file_name = Printf.sprintf "functions/%s.mcfunction"
+   type block_type = Chain | Repeat | Impulse
 
-let save_all_funs (fn_list : (string * string) list) =
-  let cur_title = ref (fst (List.hd fn_list)) in
-  let content = ref "" in
-  fn_list
-  |> List.iter (fun (title, fn) ->
-         if title <> !cur_title then (
-           let tag = format_tag !cur_title in
-           Util.write_to_file (file_name tag) !content;
-           cur_title := title;
-           content := "function " ^ tag)
-         else content := fn >> !content)
+   type command_block = {
+     command : string;
+     block_type : block_type;
+     condition : bool;
+     auto : bool;
+     execute_on_first_tick : bool;
+     hover_note : string;
+     delay : int;
+     previous_output : string;
+   }
 
-type block_type = Chain | Repeat | Impulse
+   type command_sequence = command_block list
 
-type command_block = {
-  command : string;
-  block_type : block_type;
-  condition : bool;
-  auto : bool;
-  execute_on_first_tick : bool;
-  hover_note : string;
-  delay : int;
-  previous_output : string;
-}
+   type system = {
+     name : string;
+     init_program : command_sequence;
+     entry_program : command_sequence;
+     programs : command_sequence list;
+     boundbox : int * int * int; (* max size of system *)
+   }
 
-type command_sequence = command_block list
-
-type system = {
-  name : string;
-  init_program : command_sequence;
-  entry_program : command_sequence;
-  programs : command_sequence list;
-  boundbox : int * int * int; (* max size of system *)
-}
-
-let system_init_with_size x y z =
-  {
-    name = "cl";
-    init_program = [];
-    entry_program = [];
-    programs = [];
-    boundbox = (x, y, z);
-  }
+   let system_init_with_size x y z =
+     {
+       name = "cl";
+       init_program = [];
+       entry_program = [];
+       programs = [];
+       boundbox = (x, y, z);
+     } *)

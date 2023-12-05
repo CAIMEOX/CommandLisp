@@ -59,9 +59,16 @@ The Command Lisp project primarily functions as a compiler, translating CL code 
   - Houses various command generators, including:
     - `ScoreBoard`: Generates scoreboard commands.
     - `Execute`: Facilitates the execution of commands.
+    - `TargetSelector`: Target selector generator.
+    - `Summon`: Summon command.
+    - `Tag`: Tag command.
+
 
 - **Utility Module (`Util`)**
   - Manages file and string-related operations, including handling McFunction.
+
+- **Format Module (`Fmt`)**
+  - Handle `string_of_x` functions and pretty print
 
 - **Nbt Module (`Nbt`)**
   - Handles Named Binary Tag (NBT) encoding, albeit incompletely, yet sufficient for `mcstructure`.
