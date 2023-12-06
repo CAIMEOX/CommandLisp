@@ -1,180 +1,161 @@
-(* open Command
+open Command
 
-   module Register = struct
-     open ScoreBoard
-     open Printf
-     open Util
+module Register = struct
+  let free_x_registers = ref (Array.make 10 true)
 
-     let register = sprintf "cpu %s"
-     let xi = Printf.sprintf "x%d"
-     let ti = Printf.sprintf "t%d"
-     let ai = Printf.sprintf "a%d"
-     let reg_op op r1 r2 = ScoreBoard.player_bin_op op (register r1) (register r2)
+  let is_free_x_register i =
+    if !free_x_registers.(i) then (
+      !free_x_registers.(i) <- false;
+      true)
+    else false
 
-     let reg_init regs =
-       List.init 5 (fun i ->
-           objective_add (regs i) >> unary_set (register (regs i)) 0)
+  let get_x_register () =
+    let rec get_x_register_helper i =
+      if i = 10 then failwith "No free x registers"
+      else if is_free_x_register i then Printf.sprintf "%d" i
+      else get_x_register_helper (i + 1)
+    in
+    get_x_register_helper 0
+end
 
-     let reg_set reg value = unary_set (register reg) value
-     let reg_add reg value = unary_add (register reg) value
+module EntityStack = struct
+  open Position
 
-     let pointers : string list =
-       (objective_add "rp" >> unary_set (register "rp") 0)
-       :: [ objective_add "sp" >> unary_set (register "sp") 0 ]
+  type namespace = { top : string; value : string; tmp : string }
 
-     let init = reg_init xi @ reg_init ti @ reg_init ai @ pointers
-   end
+  (* entity may serve as data stack or ret stack *)
+  type entity_stack = {
+    ns : namespace;
+    entity_type : string;
+    matrix_size : int;
+    direction : direction;
+  }
 
-   module StackFrame = struct
-     open ScoreBoard
-     open Printf
-     open Execute
-     open Util
+  let new_data_stack entity_type matrix_size direction =
+    {
+      ns =
+        {
+          top = "data_stack_top";
+          value = "data_stack_value";
+          tmp = "data_stack_tmp";
+        };
+      entity_type;
+      direction;
+      matrix_size;
+    }
 
-     let stack = sprintf "stack %s"
-     let run_function = sprintf "function %s"
-     let name = sprintf "stack_%s_%s"
-     let file_name x y = name x y |> sprintf "functions/%s.mcfunction"
-     let sindex = Printf.sprintf "stack_%d"
+  let new_call_stack entity_type matrix_size direction =
+    {
+      ns =
+        {
+          top = "call_stack_top";
+          value = "call_stack_value";
+          tmp = "call_stack_tmp";
+        };
+      entity_type;
+      direction;
+      matrix_size;
+    }
 
-     let init size =
-       List.init size (fun i ->
-           objective_add (sindex i) >> unary_set (stack (sindex i)) 0)
+  let ( -- ) i j = List.init (j - i + 1) (fun x -> x + i)
 
-     let search_value register size op =
-       List.init size (fun i ->
-           execute (cond_score_is register i) (op (stack (sindex i))))
+  open TargetSelector
+  open Execute
+  open ScoreBoard
 
-     let generate_push size reg =
-       search_value "cpu sp" size (fun x -> binop_assign x (Register.register reg))
+  let linearize_command seq = String.concat "\n" seq
 
-     let generate_pop size reg =
-       search_value "cpu sp" size (binop_assign (Register.register reg))
+  let summon_relative sel name d offset =
+    let open Summon in
+    Execute
+      [
+        Modify (At sel);
+        Run (Summon (name, direction_to_position d offset) |> string_of_summon);
+      ]
+    |> string_of_execute
 
-     let generate_access size reg_target reg_save =
-       let helper size op =
-         List.init size (fun i ->
-             execute
-               (cond_score_eq reg_target (stack (sindex i)))
-               (op (stack (sindex i))))
-       in
-       helper size (binop_assign (Register.register reg_save))
+  let generate_entity es =
+    let spawn = summon_relative (Var Self) es.entity_type es.direction in
+    List.map spawn (1 -- es.matrix_size)
 
-     let push size reg =
-       write_to_file (file_name "push" reg)
-         (generate_push size reg |> flatten >> unary_add (Register.register "sp") 1);
-       run_function (name "push" reg)
+  let stack_top_ref es =
+    VarArg (AllEntities, [ Type es.entity_type; Tag es.ns.top; Count 1 ])
 
-     let pop size reg =
-       write_to_file (file_name "pop" reg)
-         (unary_sub (Register.register "sp") 1
-         >> (generate_pop size reg |> flatten));
-       run_function (name "pop" reg)
+  let compile_store reg value =
+    Player (Set (Name "cpu", reg, value)) |> string_of_scoreboard
 
-     let access size reg index_in_reg =
-       write_to_file (file_name "access" reg)
-         (generate_access size (Register.register index_in_reg) reg |> flatten);
-       run_function (name "access" reg)
-   end
+  let compile_load_to es reg =
+    Player (Operation (Name "cpu", reg, Set, Var Self, es.ns.value))
+    |> string_of_scoreboard
 
-   (* Calling a function:
-      | Ret.push return address (int)
-      | address connect to a function (label)
-      | push arguments (int)
-      | jump to function (label)
-      | Ret.pop return address (int) to register x0
-      | run the connected function (label)
-   *)
-   module RetStack = struct
-     open ScoreBoard
-     open Printf
-     open Execute
-     open Util
+  let compile_load_from es reg =
+    Player (Operation (Var Self, es.ns.value, Set, Name "cpu", reg))
+    |> string_of_scoreboard
 
-     let stack = sprintf "ret_stack %s"
-     let run_function = sprintf "function %s"
-     let name = sprintf "ret_stack_%s_%s"
-     let file_name x y = name x y |> sprintf "functions/%s.mcfunction"
-     let sindex = Printf.sprintf "ret_stack_%d"
+  let compile_fun_call name =
+    let open Function in
+    string_of_function name
 
-     let init size =
-       List.init size (fun i ->
-           objective_add (sindex i) >> unary_set (stack (sindex i)) 0)
+  let compile_if_then reg v cmd =
+    let open Execute in
+    Execute [ Option (If (Score (MatchesValue (Name "cpu", reg, v)))); Run cmd ]
+    |> string_of_execute
 
-     let search_value register size op =
-       List.init size (fun i ->
-           execute (cond_score_is register i) (op (stack (sindex i))))
+  (* peek offset sp - n and load to reg *)
+  let compile_peek es reg n =
+    Execute
+      [
+        Modify (PositionedAs (stack_top_ref es));
+        Modify (Positioned (direction_to_position es.direction (-n)));
+        Modify (As (VarArg (AllEntities, [ R 0.5 ])));
+        Run (compile_load_to es reg);
+      ]
+    |> string_of_execute
 
-     let generate_push size reg =
-       search_value "cpu rp" size (fun x -> binop_assign x (Register.register reg))
+  let compile_move_sp es n =
+    [
+      Tag.Add (stack_top_ref es, es.ns.tmp) |> Tag.string_of_tag;
+      Execute
+        [
+          Modify (As (VarArg (AllEntities, [ Tag es.ns.tmp ])));
+          Modify (Positioned (direction_to_position es.direction n));
+          Modify (As (VarArg (AllEntities, [ R 0.5 ])));
+          Run (Tag.Add (Var Self, es.ns.top) |> Tag.string_of_tag);
+        ]
+      |> string_of_execute;
+      Tag.Remove
+        (VarArg (AllEntities, [ Type es.entity_type; Tag es.ns.tmp ]), es.ns.top)
+      |> Tag.string_of_tag;
+      Tag.Remove
+        (VarArg (AllEntities, [ Type es.entity_type; Tag es.ns.tmp ]), es.ns.tmp)
+      |> Tag.string_of_tag;
+    ]
 
-     let generate_pop size reg =
-       search_value "cpu rp" size (binop_assign (Register.register reg))
+  let compile_pop es reg =
+    (Execute
+       [
+         Modify
+           (As (VarArg (AllEntities, [ Type es.entity_type; Tag es.ns.top ])));
+         Run (compile_load_to es reg);
+       ]
+    |> string_of_execute)
+    :: compile_move_sp es (-1)
 
-     let generate_access size reg_target reg_save =
-       let helper size op =
-         List.init size (fun i ->
-             execute
-               (cond_score_eq reg_target (stack (sindex i)))
-               (op (stack (sindex i))))
-       in
-       helper size (binop_assign (Register.register reg_save))
+  let compile_push es reg =
+    compile_move_sp es 1
+    @ [
+        Execute
+          [
+            Modify
+              (As (VarArg (AllEntities, [ Type es.entity_type; Tag es.ns.top ])));
+            Run (compile_load_from es reg);
+          ]
+        |> string_of_execute;
+      ]
 
-     let push size reg =
-       write_to_file (file_name "push" reg)
-         (generate_push size reg |> flatten >> unary_add (Register.register "rp") 1);
-       run_function (name "push" reg)
-
-     let pop size reg =
-       write_to_file (file_name "pop" reg)
-         (unary_sub (Register.register "rp") 1
-         >> (generate_pop size reg |> flatten));
-       run_function (name "pop" reg)
-
-     let run_linked_function reg fn_index fn_label =
-       execute
-         (cond_score_is (Register.register reg) fn_index)
-         (run_function fn_label)
-
-     let link reg fn_index fn_label =
-       append_to_file (file_name "control" reg)
-         (run_linked_function reg fn_index fn_label);
-       run_function (name "call" reg)
-   end
-
-   module EntityStack = struct
-     type entity_stack = {
-       entity_type : string;
-       stack_size : int;
-       direction : direction;
-     }
-
-     let new_entity_stack entity_type stack_size direction =
-       { entity_type; stack_size; direction }
-
-     let ( -- ) i j = List.init (j - i + 1) (fun x -> x + i)
-     (* let gen_entity_matrix (l: int) (w: int) =  *)
-
-     open TargetSelector
-
-     let stack_top_ref es =
-       selector AllEntities
-         [ entity_type es.entity_type; has_tag "stack_top"; count 1 ]
-
-     let compile_push es =
-       let stack_top = stack_top_ref es in
-       Execute.execute stack_top (Tag.add stack_top "to_be_removed")
-       +> Execute.execute_position_as
-            (direction_pointer es.direction)
-            (Tag.add stack_top "stack_top")
-
-     (* open Arch
-
-        let compile_instr x = x (* to do *)
-
-        let compile instrs =
-          let rec aux rest res =
-            match rest with [] -> res | h :: t -> aux t (res @ compile_instr h)
-          in
-          aux instrs [] *)
-   end *)
+  let compile_prim typ reg1 reg2 =
+    [
+      Player (Operation (Name "cpu", reg1, typ, Name "cpu", reg2))
+      |> string_of_scoreboard;
+    ]
+end

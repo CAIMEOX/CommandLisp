@@ -1,4 +1,4 @@
-open Arch
+open Compile.Casm
 
 type vm = {
   code : instr array;
@@ -100,44 +100,6 @@ let run vm =
   pop vm
 
 module RealVm = struct
-  let counter = ref 0
-  let incr_counter () = counter := !counter + 1
-  let refresh_counter () = counter := 0
-
-  let call_counter prefix () =
-    let n = !counter in
-    "fp_next_call_" ^ prefix ^ "_" ^ string_of_int n
-
-  let label_after_call instrs =
-    let () = refresh_counter () in
-    let rec loop rest res =
-      match rest with
-      | [] -> res
-      | Call (l, _) :: rest ->
-          let () = incr_counter () in
-          let new_label = call_counter l () in
-          loop rest (res @ [ Call (l, !counter); Label new_label ])
-      | x :: rest -> loop rest (res @ [ x ])
-    in
-    loop instrs []
-
-  let collect_labels instrs =
-    let rec loop rest instrs res =
-      match rest with
-      | [] -> res
-      | Label l :: rest -> loop rest [ Label l ] ([ (l, instrs) ] @ res)
-      | x :: rest -> loop rest (x :: instrs) res
-    in
-    loop instrs [] []
-
-  let compile_to_function instrs =
-    let funs = instrs |> label_after_call |> List.rev |> collect_labels in
-    let map = Hashtbl.create (List.length funs) in
-    List.iter (fun (l, instrs) -> Hashtbl.add map l instrs) funs;
-    map
-
-  type string_list_map = (string, instr list) Hashtbl.t
-
   type registers = {
     x : int array; [@length 10]
     a : int array; [@length 10]
@@ -145,7 +107,7 @@ module RealVm = struct
   }
 
   type vm = {
-    funs : string_list_map;
+    funs : Compile.Casm.string_list_map;
     mutable stack : int array;
     call_stack : string array;
     registers : registers;
@@ -255,13 +217,10 @@ module RealVm = struct
               push_from_reg vm 0;
               vm.fp <- pop_ret vm;
               run vm (Hashtbl.find vm.funs vm.fp)
-          | Call (f, _) -> (
-              match rest with
-              | Label next :: _ ->
-                  push_ret vm next;
-                  vm.fp <- f;
-                  run vm (Hashtbl.find vm.funs f)
-              | _ -> failwith "Call must be followed by a label")
+          | Call (f, n) ->
+              push_ret vm (string_of_int n);
+              vm.fp <- f;
+              run vm (Hashtbl.find vm.funs f)
           | IfZero t ->
               pop_to_reg vm 0;
               if read_from_reg vm 0 = 0 then (
@@ -279,7 +238,7 @@ module RealVm = struct
     run vm (Hashtbl.find vm.funs vm.fp)
 
   let compile_and_run code =
-    let funs = compile_to_function code in
+    let funs = Compile.Casm.compile_to_function code in
     let vm = initVm funs in
     run_real vm
 end

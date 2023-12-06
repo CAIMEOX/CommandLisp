@@ -1,13 +1,5 @@
 open Printf
 
-let ( +> ) = sprintf "%s %s"
-
-module type Command = sig
-  type t
-
-  val string : t -> string
-end
-
 module Position = struct
   type position =
     | Absolute of int * int * int
@@ -29,12 +21,12 @@ module Position = struct
 
   let direction_to_position d offset =
     match d with
-    | X -> (offset, 0, 0)
-    | Y -> (0, offset, 0)
-    | Z -> (0, 0, offset)
-    | NX -> (-offset, 0, 0)
-    | NY -> (0, -offset, 0)
-    | NZ -> (0, 0, -offset)
+    | X -> Relative (offset, 0, 0)
+    | Y -> Relative (0, offset, 0)
+    | Z -> Relative (0, 0, offset)
+    | NX -> Relative (-offset, 0, 0)
+    | NY -> Relative (0, -offset, 0)
+    | NZ -> Relative (0, 0, -offset)
 end
 
 module TargetSelector = struct
@@ -190,6 +182,19 @@ module Tag = struct
     | List sel -> sprintf "tag %s list" (string_of_selector sel)
 end
 
+module Summon = struct
+  type summon = Summon of string * Position.position
+
+  let string_of_summon sn =
+    match sn with
+    | Summon (name, pos) ->
+        sprintf "summon %s %s" name (Position.string_of_position pos)
+end
+
+module Function = struct
+  let string_of_function name = sprintf "function %s" name
+end
+
 module Execute = struct
   open TargetSelector
   open Position
@@ -266,8 +271,4 @@ module Execute = struct
 
   let string_of_execute (Execute scs) =
     sprintf "execute %s" (List.map string_of_subcommand scs |> String.concat " ")
-end
-
-module Summon = struct
-  let entity ty = sprintf "summon %s %s" ty
 end

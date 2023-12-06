@@ -8,8 +8,10 @@ let fmt_align_number n max =
   let padding = String.make (number_digit_len max - len) ' ' in
   padding ^ s
 
+open Compile
+open Casm
+
 let string_of_instr instr =
-  let open Arch in
   match instr with
   | Cst i -> "Cst " ^ string_of_int i
   | Add -> "Add"
@@ -28,7 +30,6 @@ let string_of_instr instr =
   | Syscall -> "Syscall"
 
 let rec format_instr instrs : string =
-  let open Arch in
   match instrs with
   | [] -> ""
   | instr :: instrs -> (

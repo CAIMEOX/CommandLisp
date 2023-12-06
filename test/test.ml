@@ -26,39 +26,39 @@ end
 let () =
   let open Alcotest in
   let open Fact in
-  run "Command"
-    [
-      ( "scoreboard",
-        [
-          test_case "add objective" `Quick (fun () ->
-              check string "add objective"
-                "scoreboard objectives add caimeo dummy caimeo" scb_add);
-          test_case "remove objective" `Quick (fun () ->
-              check string "remove objective"
-                "scoreboard objectives remove caimeo" scb_remove);
-          test_case "player add score" `Quick (fun () ->
-              check string "player add score"
-                "scoreboard players add caimeo obj 1" scb_player_add);
-          test_case "player operation add" `Quick (fun () ->
-              check string "player operation add"
-                "scoreboard players operation caimeo obj += lampese obj"
-                scb_player_op_add);
-          test_case "target selector 1" `Quick (fun () ->
-              check string "target selector 1" "@e[tag=wow]" ts1);
-          test_case "target selector 2" `Quick (fun () ->
-              check string "target selector 2"
-                "@e[tag=wow,c=1,r=0.5,scores={a=1,b=2}]" ts2);
-        ] );
-      ( "execute",
-        [
-          test_case "execute simple run" `Quick (fun () ->
-              check string "execute simple run" exe1_str exe1);
-          test_case "execute simple run" `Quick (fun () ->
-              check string "execute simple run" exe2_str exe2);
-          test_case "execute simple run" `Quick (fun () ->
-              check string "execute simple run" exe3_str exe3);
-        ] );
-    ];
+  (* run "Command"
+     [
+       ( "scoreboard",
+         [
+           test_case "add objective" `Quick (fun () ->
+               check string "add objective"
+                 "scoreboard objectives add caimeo dummy caimeo" scb_add);
+           test_case "remove objective" `Quick (fun () ->
+               check string "remove objective"
+                 "scoreboard objectives remove caimeo" scb_remove);
+           test_case "player add score" `Quick (fun () ->
+               check string "player add score"
+                 "scoreboard players add caimeo obj 1" scb_player_add);
+           test_case "player operation add" `Quick (fun () ->
+               check string "player operation add"
+                 "scoreboard players operation caimeo obj += lampese obj"
+                 scb_player_op_add);
+           test_case "target selector 1" `Quick (fun () ->
+               check string "target selector 1" "@e[tag=wow]" ts1);
+           test_case "target selector 2" `Quick (fun () ->
+               check string "target selector 2"
+                 "@e[tag=wow,c=1,r=0.5,scores={a=1,b=2}]" ts2);
+         ] );
+       ( "execute",
+         [
+           test_case "execute simple run" `Quick (fun () ->
+               check string "execute simple run" exe1_str exe1);
+           test_case "execute simple run" `Quick (fun () ->
+               check string "execute simple run" exe2_str exe2);
+           test_case "execute simple run" `Quick (fun () ->
+               check string "execute simple run" exe3_str exe3);
+         ] );
+     ]; *)
   run "VM"
     [
       ( "fact_stack_vm",

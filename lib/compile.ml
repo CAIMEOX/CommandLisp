@@ -1,5 +1,70 @@
 open Parse
-open Core
+
+module Casm = struct
+  type instr =
+    | Cst of int
+    | Pop
+    | Swap
+    | Add
+    | Mul
+    | Sub
+    | Div
+    | Call of string * int
+    | Var of int
+    | Ret of int
+    | Label of string
+    | IfZero of string
+    | Goto of string
+    | Syscall
+    | Exit
+
+  type string_list_map = (string, instr list) Hashtbl.t
+
+  let counter = ref 0
+  let incr_counter () = counter := !counter + 1
+
+  let is_num x =
+    try
+      ignore (int_of_string x);
+      true
+    with _ -> false
+
+  let refresh_counter () = counter := 0
+
+  let call_counter prefix () =
+    let n = !counter in
+    "fp_next_call_" ^ prefix ^ "_" ^ string_of_int n
+
+  let label_after_call instrs =
+    let () = refresh_counter () in
+    let rec loop rest res =
+      match rest with
+      | [] -> res
+      | Call (l, _) :: rest ->
+          let () = incr_counter () in
+          loop rest
+            (res @ [ Call (l, !counter); Label (string_of_int !counter) ])
+      | x :: rest -> loop rest (res @ [ x ])
+    in
+    loop instrs []
+
+  let collect_labels instrs =
+    let rec loop rest instrs res =
+      match rest with
+      | [] -> res
+      | Label l :: rest ->
+          if is_num l then loop rest [] ([ (l, instrs) ] @ res)
+          else loop rest [ Label l ] ([ (l, instrs) ] @ res)
+      | x :: rest -> loop rest (x :: instrs) res
+    in
+    loop instrs [] []
+
+  let compile_to_function instrs =
+    let funs = instrs |> label_after_call |> List.rev |> collect_labels in
+    let map = Hashtbl.create (List.length funs) in
+    List.iter (fun (l, instrs) -> Hashtbl.add map l instrs) funs;
+    map
+end
 
 module Flat = struct
   type expr =
@@ -18,11 +83,11 @@ module Flat = struct
       | Cst n -> string_of_int n
       | Prim (prim, exprs) ->
           "(" ^ string_of_prim prim ^ " "
-          ^ String.concat ~sep:" " (List.map exprs ~f:loop)
+          ^ String.concat " " (List.map loop exprs)
           ^ ")"
       | Var s -> s
       | App (f, args) ->
-          "(" ^ f ^ " " ^ String.concat ~sep:" " (List.map args ~f:loop) ^ ")"
+          "(" ^ f ^ " " ^ String.concat " " (List.map loop args) ^ ")"
       | Let (x, e1, e2) -> "(let (" ^ x ^ " " ^ loop e1 ^ ") " ^ loop e2 ^ ")"
       | If (e1, e2, e3) ->
           "(if " ^ loop e1 ^ " " ^ loop e2 ^ " " ^ loop e3 ^ ")"
@@ -43,9 +108,9 @@ type venv = var list
 let rec remove_funs (expr : expr) : Flat.expr =
   match expr with
   | Cst n -> Cst n
-  | Prim (prim, exprs) -> Prim (prim, List.map exprs ~f:remove_funs)
+  | Prim (prim, exprs) -> Prim (prim, List.map remove_funs exprs)
   | Var s -> Var s
-  | App (e1, e2) -> App (e1, List.map e2 ~f:remove_funs)
+  | App (e1, e2) -> App (e1, List.map remove_funs e2)
   | Letfn (_, _, _, scope) -> remove_funs scope
   | Let (s, e1, e2) -> Let (s, remove_funs e1, remove_funs e2)
   | If (e1, e2, e3) -> If (remove_funs e1, remove_funs e2, remove_funs e3)
@@ -54,12 +119,12 @@ let rec remove_funs (expr : expr) : Flat.expr =
 let rec collect_funs (expr : expr) : Flat.fn list =
   match expr with
   | Cst _ | Var _ -> []
-  | Prim (_, exprs) -> List.concat_map exprs ~f:collect_funs
+  | Prim (_, exprs) -> List.concat_map collect_funs exprs
   | Let (_, e1, e2) -> collect_funs e1 @ collect_funs e2
   | Letfn (name, args, body, scope) ->
       ((name, args, remove_funs body) :: collect_funs body) @ collect_funs scope
   | If (e1, e2, e3) -> collect_funs e1 @ collect_funs e2 @ collect_funs e3
-  | App (_, args) -> List.concat_map args ~f:collect_funs
+  | App (_, args) -> List.concat_map collect_funs args
   | Command _ -> failwith "unimplemented"
 
 module LabelGen = struct
@@ -78,19 +143,19 @@ let vindex (venv : venv) (x : string) =
   let rec loop v x acc =
     match v with
     | [] -> failwith "unbound variable"
-    | Param s :: r -> if phys_equal s x then acc else loop r x (acc + 1)
-    | Local s :: r -> if phys_equal s x then acc else loop r x (acc + 1)
+    | Param s :: r -> if s = x then acc else loop r x (acc + 1)
+    | Local s :: r -> if s = x then acc else loop r x (acc + 1)
     | Temp :: r -> loop r x (acc + 1)
   in
   loop venv x 0
 
 let get_prim_op op name =
   match op with
-  | Add -> Arch.Add
-  | Mul -> Arch.Mul
-  | Sub -> Arch.Sub
-  | Div -> Arch.Div
-  | Self -> Arch.Call (name, 0)
+  | Add -> Casm.Add
+  | Mul -> Casm.Mul
+  | Sub -> Casm.Sub
+  | Div -> Casm.Div
+  | Self -> Casm.Call (name, 0)
 
 let rec compile_exprs venv exprs name num =
   let rec loop venv exprs acc =
@@ -102,46 +167,51 @@ let rec compile_exprs venv exprs name num =
 
 and compile_expr (venv : venv) (expr : Flat.expr) (name : string) (num : int) =
   match expr with
-  | Cst n -> [ Arch.Cst n ]
+  | Cst n -> [ Casm.Cst n ]
   | Prim (op, es) ->
       let es_code = compile_exprs venv es name num in
       let op_code = get_prim_op op name in
       es_code @ [ op_code ]
-  | Var x -> [ Arch.Var (vindex venv x) ]
+  | Var x -> [ Casm.Var (vindex venv x) ]
   | App (f, args) ->
-      compile_exprs venv args name num @ [ Arch.Call (f, List.length args) ]
+      compile_exprs venv args name num @ [ Casm.Call (f, List.length args) ]
   | Let (x, e1, e2) ->
       compile_expr venv e1 name num
       @ compile_expr (Local x :: venv) e2 name num
-      @ [ Arch.Swap; Arch.Pop ]
+      @ [ Casm.Swap; Casm.Pop ]
   | If (cond, e1, e2) ->
       let else_label = LabelGen.else_fresh () in
       let end_label = LabelGen.end_fresh () in
       List.concat
         [
           compile_expr venv cond name num;
-          [ Arch.IfZero else_label ];
+          [ Casm.IfZero else_label ];
           compile_expr venv e1 name num;
-          [ Arch.Goto end_label; Arch.Label else_label ];
+          [ Casm.Goto end_label; Casm.Label else_label ];
           compile_expr venv e2 name num;
-          [ Arch.Label end_label ];
+          [ Casm.Label end_label ];
         ]
 
 let compile_fun (fn : Flat.fn) =
   let name, args, body = fn in
   let num = List.length args in
-  let venv = List.map args ~f:(fun x -> Param x) |> List.rev in
+  let venv = List.map (fun x -> Param x) args |> List.rev in
   List.concat
-    [ Arch.Label name :: compile_expr venv body name num; [ Arch.Ret num ] ]
+    [ Casm.Label name :: compile_expr venv body name num; [ Casm.Ret num ] ]
 
 let preprocess (expr : expr) =
   ("main", [], remove_funs expr) :: collect_funs expr
 
 let compile (funs : Flat.fn list) =
-  [ Arch.Label "entry"; Arch.Call ("main", 0); Arch.Exit ]
-  @ List.concat_map funs ~f:compile_fun
+  [ Casm.Label "entry"; Casm.Call ("main", 0); Casm.Exit ]
+  @ List.concat_map compile_fun funs
 
 let preprocess_and_compile prog = prog |> preprocess |> compile
+
+let compile_to_function prog =
+  let open Casm in
+  prog |> preprocess_and_compile |> label_after_call |> List.rev
+  |> collect_labels
 
 let string_of_prim = function
   | Add -> "add"
