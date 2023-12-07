@@ -114,7 +114,9 @@ module Casm = struct
     in
     let lst = aux ft [] in
     let n2s = collect_n2s lst in
-    List.map (fun (n, _l, ins) -> (string_of_int n, numberize_instrs ins n2s)) lst
+    List.map
+      (fun (n, _l, ins) -> (string_of_int n, numberize_instrs ins n2s))
+      lst
 
   let compile_to_function instrs =
     let funs = instrs |> label_after_call |> List.rev |> collect_labels in

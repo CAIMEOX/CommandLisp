@@ -6,6 +6,8 @@ open Info
 
 (* let () = t1 () *)
 let () = t2 ()
+let () = t1' ()
+let () = print_endline (string_of_int count_of_t1)
 
 (* let () = t0 () *)
 module Fact = struct

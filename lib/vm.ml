@@ -168,8 +168,9 @@ module RealVm = struct
           run_single vm instr;
           if vm.fp = "exited" then pop_to_reg vm 0
           else if vm.fp <> !fp then (
+            print_endline ("Switching from " ^ !fp ^ " to " ^ vm.fp);
             fp := vm.fp;
-            run_batch vm (Hashtbl.find vm.funs vm.fp))
+            aux vm (Hashtbl.find vm.funs vm.fp))
           else aux vm rest
     in
     aux vm set

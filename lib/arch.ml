@@ -30,19 +30,33 @@ let system_init_with_size x y z =
     boundbox = (x, y, z);
   }
 
+type file_list = string * string list
+
+let file_add lst name content = (name, content) :: lst
+
+let file_save lst prefix =
+  let open Util in
+  List.iter
+    (fun (name, content) ->
+      write_to_file
+        (Printf.sprintf "../../../%s/%s.mcfunction" prefix name)
+        content)
+    lst
+
 open Compile
 open Control
 
-type reg_collection = { tmp : string; x : string; y : string }
+type reg_collection = { tmp : string; x : string; y : string; fp : string }
 
 let new_register_collection () =
   {
     tmp = Register.get_x_register ();
     x = Register.get_x_register ();
     y = Register.get_x_register ();
+    fp = "fp";
   }
 
-let compile_single rc es _cs instr =
+let compile_single rc es cs instr =
   let open Casm in
   let open Command in
   let open EntityStack in
@@ -66,23 +80,45 @@ let compile_single rc es _cs instr =
       @ compile_push es rc.y
   | Exit -> compile_pop es rc.x
   | Ret n ->
-      compile_pop es rc.x @ compile_move_sp es (-n)
-      @ compile_push es rc.x (* to do *)
-  | IfZero t ->
-      compile_pop es rc.x @ [ compile_if_then rc.x 0 (compile_fun_call t) ]
-  | Call _ -> []
+      compile_pop es rc.x @ compile_move_sp es (-n) @ compile_push es rc.x
+      @ compile_pop cs rc.fp
+  | Call (f, n) ->
+      compile_push cs (string_of_int n)
+      @ [ compile_store rc.fp (int_of_string f) ]
   | Label x | Goto x -> [ compile_fun_call x ]
   | Var i -> [ compile_peek es rc.x i ] @ compile_push es rc.x
   | _ -> failwith ""
 
-let casm_to_command instrs =
+let compile_fntbale ft =
+  let open Casm in
+  let open EntityStack in
   let rc = new_register_collection () in
   let es = EntityStack.new_data_stack "wither_skull" 10 Y in
   let cs = EntityStack.new_call_stack "wither_skull" 10 Y in
-  let rec aux instrs rest =
-    match instrs with [] -> rest | i :: r -> aux r (compile_single rc es cs i)
+  let casm_to_command instrs =
+    let rec aux set res =
+      match set with
+      | IfZero t :: Goto l :: instrs ->
+          let goto_l = compile_store rc.fp (int_of_string l) in
+          let ins =
+            compile_pop es rc.x
+            @ [ compile_if_then rc.x 0 (compile_store rc.fp (int_of_string t)) ]
+          in
+          aux instrs (res @ [ goto_l ] @ ins)
+      | x :: instrs -> aux instrs (res @ compile_single rc es cs x)
+      | [] -> res
+    in
+    aux instrs []
   in
-  aux instrs []
-
-let function_table_compile table =
-  List.map (fun (name, instrs) -> (name, casm_to_command instrs)) table
+  List.map
+    (fun (name, instrs) ->
+      (name, instrs |> casm_to_command |> String.concat "\n"))
+    ft
+  @ [
+      ("init_data", generate_entity es |> linearize_command);
+      ("init_call", generate_entity cs |> linearize_command);
+      ( "init",
+        registers_init "t" @ registers_init "x" @ registers_init "a" @ cpu_init
+        |> linearize_command );
+      ("ticking", compile_runtime (List.length ft - 1) |> linearize_command);
+    ]

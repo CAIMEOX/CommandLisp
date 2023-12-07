@@ -20,6 +20,9 @@ end
 
 module EntityStack = struct
   open Position
+  open TargetSelector
+  open Execute
+  open ScoreBoard
 
   type namespace = { top : string; value : string; tmp : string }
 
@@ -58,25 +61,59 @@ module EntityStack = struct
     }
 
   let ( -- ) i j = List.init (j - i + 1) (fun x -> x + i)
-
-  open TargetSelector
-  open Execute
-  open ScoreBoard
-
   let linearize_command seq = String.concat "\n" seq
+
+  (* The fp points to the current running function *)
+  let cpu_init = [ Player (Set (Name "cpu", "fp", 0)) |> string_of_scoreboard ]
+
+  let registers_init x =
+    List.concat_map
+      (fun i ->
+        [
+          Objective (Add (x ^ string_of_int i, "")) |> string_of_scoreboard;
+          Player (Set (Name "cpu", x ^ string_of_int i, 0))
+          |> string_of_scoreboard;
+        ])
+      (0 -- 10)
 
   let summon_relative sel name d offset =
     let open Summon in
     Execute
       [
         Modify (At sel);
+        Modify (Positioned (Relative (0, 1, 0)));
         Run (Summon (name, direction_to_position d offset) |> string_of_summon);
+      ]
+    |> string_of_execute
+
+  let tag_entity_stack sel es =
+    Execute
+      [
+        Modify (At sel);
+        Modify (Positioned (Relative (0, 1, 0)));
+        Modify
+          (As
+             (VarArg
+                (AllEntities, [ get_offset_dire es.direction es.matrix_size ])));
+        Run (Player (Set (Var Self, es.ns.value, 0)) |> string_of_scoreboard);
+      ]
+    |> string_of_execute
+
+  let set_header sel es =
+    Execute
+      [
+        Modify (At sel);
+        Modify (Positioned (Relative (0, 1, 0)));
+        Modify (As (VarArg (AllEntities, [ R 0.5 ])));
+        Run (Tag.Add (Var Self, es.ns.top) |> Tag.string_of_tag);
       ]
     |> string_of_execute
 
   let generate_entity es =
     let spawn = summon_relative (Var Self) es.entity_type es.direction in
-    List.map spawn (1 -- es.matrix_size)
+    let stack_header = set_header (Var Self) es in
+    let tag_all = tag_entity_stack (Var Self) es in
+    List.map spawn (1 -- es.matrix_size) @ [ tag_all; stack_header ]
 
   let stack_top_ref es =
     VarArg (AllEntities, [ Type es.entity_type; Tag es.ns.top; Count 1 ])
@@ -95,6 +132,17 @@ module EntityStack = struct
   let compile_fun_call name =
     let open Function in
     string_of_function name
+
+  let compile_runtime n =
+    List.map
+      (fun i ->
+        Execute
+          [
+            Option (If (Score (MatchesValue (Name "cpu", "fp", i))));
+            Run (compile_fun_call (string_of_int i));
+          ]
+        |> string_of_execute)
+      (0 -- n)
 
   let compile_if_then reg v cmd =
     let open Execute in
@@ -124,7 +172,7 @@ module EntityStack = struct
         ]
       |> string_of_execute;
       Tag.Remove
-        (VarArg (AllEntities, [ Type es.entity_type; Tag es.ns.tmp ]), es.ns.top)
+        (VarArg (AllEntities, [ Type es.entity_type; Tag es.ns.top ]), es.ns.top)
       |> Tag.string_of_tag;
       Tag.Remove
         (VarArg (AllEntities, [ Type es.entity_type; Tag es.ns.tmp ]), es.ns.tmp)

@@ -108,7 +108,8 @@ module ScoreBoard = struct
 
   type objective =
     | List
-    | Add of string * string (* objective, name *)
+    | Add of string * string
+    (* objective, name *)
     | Remove of string (* to do: setdisplay *)
 
   type player =
@@ -272,3 +273,13 @@ module Execute = struct
   let string_of_execute (Execute scs) =
     sprintf "execute %s" (List.map string_of_subcommand scs |> String.concat " ")
 end
+
+let get_offset_dire (x : Position.direction) i =
+  let open TargetSelector in
+  match x with
+  | X -> Dx i
+  | Y -> Dy i
+  | Z -> Dz i
+  | NX -> Dx (-i)
+  | NY -> Dy (-i)
+  | NZ -> Dz (-i)
