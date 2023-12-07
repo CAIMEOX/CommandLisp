@@ -20,7 +20,9 @@ let repl () =
           let r = line |> compile_and_run |> string_of_int in
           print_endline r;
           loop ()
-        with e -> print_endline (Printexc.to_string e)
+        with e ->
+          print_endline (Printexc.to_string e);
+          loop ()
     with End_of_file -> print_endline "Bye!"
   in
   loop ()

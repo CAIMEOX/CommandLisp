@@ -40,6 +40,8 @@ module Casm = struct
     let rec loop rest res =
       match rest with
       | [] -> res
+      | IfZero t :: rest -> loop rest (res @ [ IfZero t; Label ("counter" ^ t) ])
+      | Goto t :: rest -> loop rest (res @ [ Goto t ])
       | Call (l, _) :: rest ->
           let () = incr_counter () in
           loop rest
@@ -59,8 +61,70 @@ module Casm = struct
     in
     loop instrs [] []
 
+  let dead_code_elimination (instrs : instr list) (funs : string list) =
+    let rec aux ins res =
+      match ins with
+      | [] -> res
+      (* | IfZero l :: Label _ :: _ -> res @ [ IfZero l ] *)
+      | Exit :: _ -> res @ [ Exit ]
+      | Goto l :: _ -> res @ [ Goto l ]
+      | Ret n :: _ -> res @ [ Ret n ]
+      | Label l :: [] ->
+          if List.mem l funs then res @ [ Goto l ] else res @ [ Label l ]
+      | x :: rest -> aux rest (res @ [ x ])
+    in
+    aux instrs []
+
+  let collect_n2s ft =
+    let rec aux ft res =
+      match ft with
+      | [] -> res
+      | (n, l, _) :: rest -> aux rest (res @ [ (n, l) ])
+    in
+    aux ft []
+
+  let rec find_tuple_snd tpl name =
+    match tpl with
+    | (n, l) :: rest ->
+        if name = l then string_of_int n else find_tuple_snd rest name
+    | [] -> failwith "unbound label"
+
+  let numberize_instrs ins kvs =
+    let rec aux ins res =
+      match ins with
+      | Call (l, n) :: rest ->
+          aux rest (res @ [ Call (find_tuple_snd kvs l, n) ])
+      | IfZero l :: rest -> aux rest (res @ [ IfZero (find_tuple_snd kvs l) ])
+      | Goto l :: rest -> aux rest (res @ [ Goto (find_tuple_snd kvs l) ])
+      | Label l :: rest -> aux rest (res @ [ Label (find_tuple_snd kvs l) ])
+      | x :: rest -> aux rest (res @ [ x ])
+      | [] -> res
+    in
+    aux ins []
+
+  let numberize_labels ft =
+    let rec aux ft res =
+      match ft with
+      | [] -> res
+      | (l, ins) :: rest ->
+          if is_num l then aux rest (res @ [ (int_of_string l, l, ins) ])
+          else
+            let () = incr_counter () in
+            aux rest (res @ [ (!counter, l, ins) ])
+    in
+    let lst = aux ft [] in
+    let n2s = collect_n2s lst in
+    List.map (fun (n, _l, ins) -> (string_of_int n, numberize_instrs ins n2s)) lst
+
   let compile_to_function instrs =
     let funs = instrs |> label_after_call |> List.rev |> collect_labels in
+    let funs =
+      List.map
+        (fun (l, instrs) ->
+          (l, dead_code_elimination instrs (List.map fst funs)))
+        funs
+    in
+    let funs = numberize_labels funs in
     let map = Hashtbl.create (List.length funs) in
     List.iter (fun (l, instrs) -> Hashtbl.add map l instrs) funs;
     map
@@ -203,7 +267,7 @@ let preprocess (expr : expr) =
   ("main", [], remove_funs expr) :: collect_funs expr
 
 let compile (funs : Flat.fn list) =
-  [ Casm.Label "entry"; Casm.Call ("main", 0); Casm.Exit ]
+  [ Casm.Label "0"; Casm.Call ("main", 0); Casm.Exit ]
   @ List.concat_map compile_fun funs
 
 let preprocess_and_compile prog = prog |> preprocess |> compile

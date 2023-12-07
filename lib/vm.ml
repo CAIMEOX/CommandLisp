@@ -109,7 +109,7 @@ module RealVm = struct
   type vm = {
     funs : Compile.Casm.string_list_map;
     mutable stack : int array;
-    call_stack : string array;
+    call_stack : int array;
     registers : registers;
     mutable fp : string;
     mutable csp : int;
@@ -120,8 +120,8 @@ module RealVm = struct
     {
       funs = map;
       stack = Array.make 100 0;
-      call_stack = Array.make 30 "";
-      fp = "entry";
+      call_stack = Array.make 30 0;
+      fp = "0";
       registers =
         { x = Array.make 10 0; a = Array.make 10 0; t = Array.make 10 0 };
       csp = 0;
@@ -158,6 +158,74 @@ module RealVm = struct
   let pop_ret vm =
     vm.csp <- vm.csp - 1;
     vm.call_stack.(vm.csp)
+
+  let rec run_batch vm set =
+    let fp = ref vm.fp in
+    let rec aux vm instrs =
+      match instrs with
+      | [] -> ()
+      | instr :: rest ->
+          run_single vm instr;
+          if vm.fp = "exited" then pop_to_reg vm 0
+          else if vm.fp <> !fp then (
+            fp := vm.fp;
+            run_batch vm (Hashtbl.find vm.funs vm.fp))
+          else aux vm rest
+    in
+    aux vm set
+
+  and run_single vm i =
+    match i with
+    | Cst i ->
+        load_to_reg vm 0 i;
+        push_from_reg vm 0
+    | Add ->
+        pop_to_reg vm 0;
+        pop_to_reg vm 1;
+        perf_add vm 0 1;
+        push_from_reg vm 0
+    | Sub ->
+        pop_to_reg vm 0;
+        pop_to_reg vm 1;
+        perf_sub vm 0 1;
+        push_from_reg vm 0
+    | Mul ->
+        pop_to_reg vm 0;
+        pop_to_reg vm 1;
+        perf_mul vm 0 1;
+        push_from_reg vm 0
+    | Div ->
+        pop_to_reg vm 0;
+        pop_to_reg vm 1;
+        perf_div vm 0 1;
+        push_from_reg vm 0
+    | Var i ->
+        load_to_reg vm 0 vm.stack.(vm.sp - i - 1);
+        push_from_reg vm 0
+    | Pop -> pop_to_reg vm 0
+    | Swap ->
+        pop_to_reg vm 0;
+        pop_to_reg vm 1;
+        push_from_reg vm 0;
+        push_from_reg vm 1
+    | Goto x -> vm.fp <- x
+    | Ret n ->
+        pop_to_reg vm 0;
+        vm.sp <- vm.sp - n;
+        push_from_reg vm 0;
+        vm.fp <- vm |> pop_ret |> string_of_int
+    | Call (f, n) ->
+        push_ret vm n;
+        vm.fp <- f
+    | IfZero t ->
+        pop_to_reg vm 0;
+        if read_from_reg vm 0 = 0 then vm.fp <- t
+    | Exit -> vm.fp <- "exited"
+    | _ -> failwith "Not implemented"
+
+  let run_with_switching vm =
+    run_batch vm (Hashtbl.find vm.funs vm.fp);
+    read_from_reg vm 0
 
   let run_real vm =
     let counter = ref 0 in
@@ -208,17 +276,17 @@ module RealVm = struct
               push_from_reg vm 0;
               push_from_reg vm 1;
               run vm rest
-          | Label x ->
+          | Goto x ->
               vm.fp <- x;
               run vm (Hashtbl.find vm.funs x)
           | Ret n ->
               pop_to_reg vm 0;
               vm.sp <- vm.sp - n;
               push_from_reg vm 0;
-              vm.fp <- pop_ret vm;
+              vm.fp <- vm |> pop_ret |> string_of_int;
               run vm (Hashtbl.find vm.funs vm.fp)
           | Call (f, n) ->
-              push_ret vm (string_of_int n);
+              push_ret vm n;
               vm.fp <- f;
               run vm (Hashtbl.find vm.funs f)
           | IfZero t ->
@@ -227,9 +295,6 @@ module RealVm = struct
                 vm.fp <- t;
                 run vm (Hashtbl.find vm.funs t))
               else run vm rest
-          | Goto t ->
-              vm.fp <- t;
-              run vm (Hashtbl.find vm.funs t)
           | Exit ->
               pop_to_reg vm 0;
               read_from_reg vm 0
@@ -240,5 +305,5 @@ module RealVm = struct
   let compile_and_run code =
     let funs = Compile.Casm.compile_to_function code in
     let vm = initVm funs in
-    run_real vm
+    run_with_switching vm
 end

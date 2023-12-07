@@ -2,7 +2,12 @@ open Command_lisp
 open Compile
 open Exp
 open Vm
+open Info
 
+(* let () = t1 () *)
+let () = t2 ()
+
+(* let () = t0 () *)
 module Fact = struct
   let test_fact i =
     let instrs = preprocess_and_compile (fact i) in
