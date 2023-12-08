@@ -57,13 +57,14 @@ let compile_single rc es cs instr =
   | Sub -> compile_pop es rc.x @ compile_pop es rc.y @ compile_prim ScoreBoard.Sub rc.x rc.y
   | Mul -> compile_pop es rc.x @ compile_pop es rc.y @ compile_prim ScoreBoard.Mul rc.x rc.y
   | Div -> compile_pop es rc.x @ compile_pop es rc.y @ compile_prim ScoreBoard.Div rc.x rc.y
-  | Cst i -> [ compile_store rc.x i ] @ compile_push es rc.x
+  | Cst i -> [ compile_store rc.x  i ] @ compile_push es rc.x
   | Pop -> compile_pop es rc.tmp
   | Swap -> compile_pop es rc.x @ compile_pop es rc.y @ compile_push es rc.x @ compile_push es rc.y
-  | Exit -> compile_pop es rc.x
+  | Exit -> compile_pop es rc.x @ [ compile_store rc.fp (-1) ]
   | Ret n ->
       compile_pop es rc.x @ compile_move_sp es (-n) @ compile_push es rc.x @ compile_pop cs rc.fp
-  | Call (f, n) -> compile_push cs (string_of_int n) @ [ compile_store rc.fp (int_of_string f) ]
+  | Call (f, n) ->
+      (compile_store rc.x n :: compile_push cs rc.x) @ [ compile_store rc.fp (int_of_string f) ]
   | Label x | Goto x -> [ compile_fun_call x ]
   | Var i -> [ compile_peek es rc.x i ] @ compile_push es rc.x
   | _ -> failwith ""
@@ -72,8 +73,8 @@ let compile_fntbale ft =
   let open Casm in
   let open EntityStack in
   let rc = new_register_collection () in
-  let es = EntityStack.new_data_stack "wither_skull" 10 Y in
-  let cs = EntityStack.new_call_stack "wither_skull" 10 Y in
+  let es = EntityStack.new_data_stack "armor_stand" 30 X in
+  let cs = EntityStack.new_call_stack "armor_stand" 20 X in
   let casm_to_command instrs =
     let rec aux set res =
       match set with

@@ -54,7 +54,11 @@ module EntityStack = struct
   let linearize_command seq = String.concat "\n" seq
 
   (* The fp points to the current running function *)
-  let cpu_init = [ Player (Set (Name "cpu", "fp", 0)) |> string_of_scoreboard ]
+  let cpu_init =
+    [
+      Objective (Add ("fp", "")) |> string_of_scoreboard;
+      Player (Set (Name "cpu", "fp", -1)) |> string_of_scoreboard;
+    ]
 
   let registers_init x =
     List.concat_map
@@ -70,6 +74,7 @@ module EntityStack = struct
     Execute
       [
         Modify (At sel);
+        Modify (Align ("xyz"));
         Modify (Positioned (Relative (0, 1, 0)));
         Run (Summon (name, direction_to_position d offset) |> string_of_summon);
       ]
@@ -89,7 +94,7 @@ module EntityStack = struct
     Execute
       [
         Modify (At sel);
-        Modify (Positioned (Relative (0, 1, 0)));
+        Modify (Positioned (Relative (0, 1, 0) ++ direction_to_position es.direction 1));
         Modify (As (VarArg (AllEntities, [ R 0.5 ])));
         Run (Tag.Add (Var Self, es.ns.top) |> Tag.string_of_tag);
       ]

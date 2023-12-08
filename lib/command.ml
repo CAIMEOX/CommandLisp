@@ -88,6 +88,13 @@ module Position = struct
     | Relative (x, y, z) -> sprintf "%s %s %s" (rint x) (rint y) (rint z)
     | View (x, y, z) -> sprintf "^%d ^%d ^%d" x y z
 
+  let ( ++ ) a b =
+    match (a, b) with
+    | Absolute (x, y, z), Absolute (x', y', z') -> Absolute (x + x', y + y', z + z')
+    | Relative (x, y, z), Relative (x', y', z') -> Relative (x + x', y + y', z + z')
+    | View (x, y, z), View (x', y', z') -> View (x + x', y + y', z + z')
+    | _ -> failwith "position_add: incompatible positions"
+
   let direction_to_position d offset =
     match d with
     | X -> Relative (offset, 0, 0)
@@ -364,9 +371,6 @@ module Print = struct
           (Yojson.Basic.to_string (json_of_message rms))
     | Title (sel, t, rms) ->
         sprintf "title %s %s %s" (string_of_selector sel)
-          (match t with
-          | Actionbar -> "actionbar"
-          | Title -> "title"
-          | Subtitle -> "subtitle")
+          (match t with Actionbar -> "actionbar" | Title -> "title" | Subtitle -> "subtitle")
           (Yojson.Basic.to_string (json_of_message rms))
 end
