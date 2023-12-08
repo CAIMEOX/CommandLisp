@@ -10,14 +10,7 @@ type vm = {
 }
 
 let initVm code =
-  {
-    code;
-    stack = Array.make 100 0;
-    call_stack = Array.make 30 0;
-    csp = 0;
-    pc = 0;
-    sp = 0;
-  }
+  { code; stack = Array.make 100 0; call_stack = Array.make 30 0; csp = 0; pc = 0; sp = 0 }
 
 let get_label code label =
   let rec loop i =
@@ -122,8 +115,7 @@ module RealVm = struct
       stack = Array.make 100 0;
       call_stack = Array.make 30 0;
       fp = "0";
-      registers =
-        { x = Array.make 10 0; a = Array.make 10 0; t = Array.make 10 0 };
+      registers = { x = Array.make 10 0; a = Array.make 10 0; t = Array.make 10 0 };
       csp = 0;
       sp = 0;
     }
@@ -136,18 +128,10 @@ module RealVm = struct
     vm.stack.(vm.sp) <- vm.registers.x.(regi);
     vm.sp <- vm.sp + 1
 
-  let perf_add vm reg1 reg2 =
-    vm.registers.x.(reg1) <- vm.registers.x.(reg1) + vm.registers.x.(reg2)
-
-  let perf_sub vm reg1 reg2 =
-    vm.registers.x.(reg1) <- vm.registers.x.(reg1) - vm.registers.x.(reg2)
-
-  let perf_mul vm reg1 reg2 =
-    vm.registers.x.(reg1) <- vm.registers.x.(reg1) * vm.registers.x.(reg2)
-
-  let perf_div vm reg1 reg2 =
-    vm.registers.x.(reg1) <- vm.registers.x.(reg1) / vm.registers.x.(reg2)
-
+  let perf_add vm reg1 reg2 = vm.registers.x.(reg1) <- vm.registers.x.(reg1) + vm.registers.x.(reg2)
+  let perf_sub vm reg1 reg2 = vm.registers.x.(reg1) <- vm.registers.x.(reg1) - vm.registers.x.(reg2)
+  let perf_mul vm reg1 reg2 = vm.registers.x.(reg1) <- vm.registers.x.(reg1) * vm.registers.x.(reg2)
+  let perf_div vm reg1 reg2 = vm.registers.x.(reg1) <- vm.registers.x.(reg1) / vm.registers.x.(reg2)
   let load_to_reg vm regi v = vm.registers.x.(regi) <- v
   let read_from_reg vm regi = vm.registers.x.(regi)
 

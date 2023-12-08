@@ -22,13 +22,7 @@ type system = {
 }
 
 let system_init_with_size x y z =
-  {
-    name = "cl";
-    init_program = [];
-    entry_program = [];
-    programs = [];
-    boundbox = (x, y, z);
-  }
+  { name = "cl"; init_program = []; entry_program = []; programs = []; boundbox = (x, y, z) }
 
 type file_list = string * string list
 
@@ -38,9 +32,7 @@ let file_save lst prefix =
   let open Util in
   List.iter
     (fun (name, content) ->
-      write_to_file
-        (Printf.sprintf "../../../%s/%s.mcfunction" prefix name)
-        content)
+      write_to_file (Printf.sprintf "../../../%s/%s.mcfunction" prefix name) content)
     lst
 
 open Compile
@@ -61,30 +53,17 @@ let compile_single rc es cs instr =
   let open Command in
   let open EntityStack in
   match instr with
-  | Add ->
-      compile_pop es rc.x @ compile_pop es rc.y
-      @ compile_prim ScoreBoard.Add rc.x rc.y
-  | Sub ->
-      compile_pop es rc.x @ compile_pop es rc.y
-      @ compile_prim ScoreBoard.Sub rc.x rc.y
-  | Mul ->
-      compile_pop es rc.x @ compile_pop es rc.y
-      @ compile_prim ScoreBoard.Mul rc.x rc.y
-  | Div ->
-      compile_pop es rc.x @ compile_pop es rc.y
-      @ compile_prim ScoreBoard.Div rc.x rc.y
+  | Add -> compile_pop es rc.x @ compile_pop es rc.y @ compile_prim ScoreBoard.Add rc.x rc.y
+  | Sub -> compile_pop es rc.x @ compile_pop es rc.y @ compile_prim ScoreBoard.Sub rc.x rc.y
+  | Mul -> compile_pop es rc.x @ compile_pop es rc.y @ compile_prim ScoreBoard.Mul rc.x rc.y
+  | Div -> compile_pop es rc.x @ compile_pop es rc.y @ compile_prim ScoreBoard.Div rc.x rc.y
   | Cst i -> [ compile_store rc.x i ] @ compile_push es rc.x
   | Pop -> compile_pop es rc.tmp
-  | Swap ->
-      compile_pop es rc.x @ compile_pop es rc.y @ compile_push es rc.x
-      @ compile_push es rc.y
+  | Swap -> compile_pop es rc.x @ compile_pop es rc.y @ compile_push es rc.x @ compile_push es rc.y
   | Exit -> compile_pop es rc.x
   | Ret n ->
-      compile_pop es rc.x @ compile_move_sp es (-n) @ compile_push es rc.x
-      @ compile_pop cs rc.fp
-  | Call (f, n) ->
-      compile_push cs (string_of_int n)
-      @ [ compile_store rc.fp (int_of_string f) ]
+      compile_pop es rc.x @ compile_move_sp es (-n) @ compile_push es rc.x @ compile_pop cs rc.fp
+  | Call (f, n) -> compile_push cs (string_of_int n) @ [ compile_store rc.fp (int_of_string f) ]
   | Label x | Goto x -> [ compile_fun_call x ]
   | Var i -> [ compile_peek es rc.x i ] @ compile_push es rc.x
   | _ -> failwith ""
@@ -101,8 +80,7 @@ let compile_fntbale ft =
       | IfZero t :: Goto l :: instrs ->
           let goto_l = compile_store rc.fp (int_of_string l) in
           let ins =
-            compile_pop es rc.x
-            @ [ compile_if_then rc.x 0 (compile_store rc.fp (int_of_string t)) ]
+            compile_pop es rc.x @ [ compile_if_then rc.x 0 (compile_store rc.fp (int_of_string t)) ]
           in
           aux instrs (res @ [ goto_l ] @ ins)
       | x :: instrs -> aux instrs (res @ compile_single rc es cs x)
@@ -110,15 +88,12 @@ let compile_fntbale ft =
     in
     aux instrs []
   in
-  List.map
-    (fun (name, instrs) ->
-      (name, instrs |> casm_to_command |> String.concat "\n"))
-    ft
+  List.map (fun (name, instrs) -> (name, instrs |> casm_to_command |> String.concat "\n")) ft
   @ [
       ("init_data", generate_entity es |> linearize_command);
       ("init_call", generate_entity cs |> linearize_command);
       ( "init",
-        registers_init "t" @ registers_init "x" @ registers_init "a" @ cpu_init
-        |> linearize_command );
+        registers_init "t" @ registers_init "x" @ registers_init "a" @ cpu_init |> linearize_command
+      );
       ("ticking", compile_runtime (List.length ft - 1) |> linearize_command);
     ]

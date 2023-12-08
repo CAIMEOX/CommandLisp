@@ -39,8 +39,7 @@ let load_file file =
   in
   loop ();
   close_in ic;
-  try compile_and_run !content |> ignore
-  with e -> print_endline (Printexc.to_string e)
+  try compile_and_run !content |> ignore with e -> print_endline (Printexc.to_string e)
 
 let usage = "Usage: clc [repl|run <file>]"
 

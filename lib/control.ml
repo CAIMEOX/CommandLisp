@@ -12,7 +12,7 @@ module Register = struct
   let get_x_register () =
     let rec get_x_register_helper i =
       if i = 10 then failwith "No free x registers"
-      else if is_free_x_register i then Printf.sprintf "%d" i
+      else if is_free_x_register i then Printf.sprintf "x%d" i
       else get_x_register_helper (i + 1)
     in
     get_x_register_helper 0
@@ -36,12 +36,7 @@ module EntityStack = struct
 
   let new_data_stack entity_type matrix_size direction =
     {
-      ns =
-        {
-          top = "data_stack_top";
-          value = "data_stack_value";
-          tmp = "data_stack_tmp";
-        };
+      ns = { top = "data_stack_top"; value = "data_stack_value"; tmp = "data_stack_tmp" };
       entity_type;
       direction;
       matrix_size;
@@ -49,12 +44,7 @@ module EntityStack = struct
 
   let new_call_stack entity_type matrix_size direction =
     {
-      ns =
-        {
-          top = "call_stack_top";
-          value = "call_stack_value";
-          tmp = "call_stack_tmp";
-        };
+      ns = { top = "call_stack_top"; value = "call_stack_value"; tmp = "call_stack_tmp" };
       entity_type;
       direction;
       matrix_size;
@@ -71,8 +61,7 @@ module EntityStack = struct
       (fun i ->
         [
           Objective (Add (x ^ string_of_int i, "")) |> string_of_scoreboard;
-          Player (Set (Name "cpu", x ^ string_of_int i, 0))
-          |> string_of_scoreboard;
+          Player (Set (Name "cpu", x ^ string_of_int i, 0)) |> string_of_scoreboard;
         ])
       (0 -- 10)
 
@@ -91,10 +80,7 @@ module EntityStack = struct
       [
         Modify (At sel);
         Modify (Positioned (Relative (0, 1, 0)));
-        Modify
-          (As
-             (VarArg
-                (AllEntities, [ get_offset_dire es.direction es.matrix_size ])));
+        Modify (As (VarArg (AllEntities, [ get_offset_dire es.direction es.matrix_size ])));
         Run (Player (Set (Var Self, es.ns.value, 0)) |> string_of_scoreboard);
       ]
     |> string_of_execute
@@ -115,19 +101,14 @@ module EntityStack = struct
     let tag_all = tag_entity_stack (Var Self) es in
     List.map spawn (1 -- es.matrix_size) @ [ tag_all; stack_header ]
 
-  let stack_top_ref es =
-    VarArg (AllEntities, [ Type es.entity_type; Tag es.ns.top; Count 1 ])
-
-  let compile_store reg value =
-    Player (Set (Name "cpu", reg, value)) |> string_of_scoreboard
+  let stack_top_ref es = VarArg (AllEntities, [ Type es.entity_type; Tag es.ns.top; Count 1 ])
+  let compile_store reg value = Player (Set (Name "cpu", reg, value)) |> string_of_scoreboard
 
   let compile_load_to es reg =
-    Player (Operation (Name "cpu", reg, Set, Var Self, es.ns.value))
-    |> string_of_scoreboard
+    Player (Operation (Name "cpu", reg, Set, Var Self, es.ns.value)) |> string_of_scoreboard
 
   let compile_load_from es reg =
-    Player (Operation (Var Self, es.ns.value, Set, Name "cpu", reg))
-    |> string_of_scoreboard
+    Player (Operation (Var Self, es.ns.value, Set, Name "cpu", reg)) |> string_of_scoreboard
 
   let compile_fun_call name =
     let open Function in
@@ -171,19 +152,16 @@ module EntityStack = struct
           Run (Tag.Add (Var Self, es.ns.top) |> Tag.string_of_tag);
         ]
       |> string_of_execute;
-      Tag.Remove
-        (VarArg (AllEntities, [ Type es.entity_type; Tag es.ns.top ]), es.ns.top)
+      Tag.Remove (VarArg (AllEntities, [ Type es.entity_type; Tag es.ns.tmp ]), es.ns.top)
       |> Tag.string_of_tag;
-      Tag.Remove
-        (VarArg (AllEntities, [ Type es.entity_type; Tag es.ns.tmp ]), es.ns.tmp)
+      Tag.Remove (VarArg (AllEntities, [ Type es.entity_type; Tag es.ns.tmp ]), es.ns.tmp)
       |> Tag.string_of_tag;
     ]
 
   let compile_pop es reg =
     (Execute
        [
-         Modify
-           (As (VarArg (AllEntities, [ Type es.entity_type; Tag es.ns.top ])));
+         Modify (As (VarArg (AllEntities, [ Type es.entity_type; Tag es.ns.top ])));
          Run (compile_load_to es reg);
        ]
     |> string_of_execute)
@@ -194,16 +172,12 @@ module EntityStack = struct
     @ [
         Execute
           [
-            Modify
-              (As (VarArg (AllEntities, [ Type es.entity_type; Tag es.ns.top ])));
+            Modify (As (VarArg (AllEntities, [ Type es.entity_type; Tag es.ns.top ])));
             Run (compile_load_from es reg);
           ]
         |> string_of_execute;
       ]
 
   let compile_prim typ reg1 reg2 =
-    [
-      Player (Operation (Name "cpu", reg1, typ, Name "cpu", reg2))
-      |> string_of_scoreboard;
-    ]
+    [ Player (Operation (Name "cpu", reg1, typ, Name "cpu", reg2)) |> string_of_scoreboard ]
 end

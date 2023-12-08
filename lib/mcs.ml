@@ -5,10 +5,7 @@ let generate_mc_structure_by_size x y z =
     Compound
       [
         ("format_version", Int 1l);
-        ( "size",
-          List
-            [ Int (Int32.of_int x); Int (Int32.of_int y); Int (Int32.of_int z) ]
-        );
+        ("size", List [ Int (Int32.of_int x); Int (Int32.of_int y); Int (Int32.of_int z) ]);
         ( "structure",
           Compound
             [

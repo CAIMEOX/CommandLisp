@@ -9,6 +9,7 @@ mkShell {
     utop
     core
     alcotest
+    yojson
   ]);
 
   shellHook = ''

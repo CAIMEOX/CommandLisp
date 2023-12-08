@@ -24,8 +24,7 @@ let flatten = String.concat "\n"
 module McFunction = struct
   type mcfunction = { name : string; commands : string }
 
-  let make_function : string -> string -> mcfunction =
-   fun name commands -> { name; commands }
+  let make_function : string -> string -> mcfunction = fun name commands -> { name; commands }
 
   type file_tree = { path : string; fn : mcfunction }
 
@@ -37,10 +36,7 @@ module McFunction = struct
     List.map
       (fun x ->
         if x.path = ft.path then
-          {
-            x with
-            fn = { x.fn with commands = x.fn.commands ^ "\n" ^ ft.fn.commands };
-          }
+          { x with fn = { x.fn with commands = x.fn.commands ^ "\n" ^ ft.fn.commands } }
         else x)
       ftl
 end

@@ -2,4 +2,4 @@
  (name command_lisp)
  (public_name command_lisp)
  (modules command parse arch vm util nbt mcs control compile fmt)
- (libraries core))
+ (libraries core yojson))

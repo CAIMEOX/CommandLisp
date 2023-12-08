@@ -40,8 +40,7 @@ let rec format_instr instrs : string =
       | Mul -> "Mul\n" ^ format_instr instrs
       | Sub -> "Sub\n" ^ format_instr instrs
       | Div -> "Div\n" ^ format_instr instrs
-      | Call (label, n) ->
-          "Call " ^ label ^ " " ^ string_of_int n ^ "\n" ^ format_instr instrs
+      | Call (label, n) -> "Call " ^ label ^ " " ^ string_of_int n ^ "\n" ^ format_instr instrs
       | Ret n -> "Ret " ^ string_of_int n ^ "\n" ^ format_instr instrs
       | IfZero r -> "IfZero " ^ r ^ "\n" ^ format_instr instrs
       | Var n -> "Var " ^ string_of_int n ^ "\n" ^ format_instr instrs
@@ -54,8 +53,7 @@ let rec format_instr instrs : string =
 let pretty_instrs instrs =
   let m = List.length instrs in
   List.mapi
-    (fun i instr ->
-      Printf.sprintf "%s | %s" (fmt_align_number i m) (string_of_instr instr))
+    (fun i instr -> Printf.sprintf "%s | %s" (fmt_align_number i m) (string_of_instr instr))
     instrs
   |> String.concat "\n"
 
@@ -63,8 +61,7 @@ let format_labeled tbl =
   List.map
     (fun (l, instrs) ->
       Printf.sprintf "[%s]: \n%s" l
-        (List.map (fun t -> "\t" ^ string_of_instr t) instrs
-        |> String.concat "\n"))
+        (List.map (fun t -> "\t" ^ string_of_instr t) instrs |> String.concat "\n"))
     tbl
 
 let print_labeled tbl = List.iter print_endline (format_labeled tbl)

@@ -44,8 +44,7 @@ module Casm = struct
       | Goto t :: rest -> loop rest (res @ [ Goto t ])
       | Call (l, _) :: rest ->
           let () = incr_counter () in
-          loop rest
-            (res @ [ Call (l, !counter); Label (string_of_int !counter) ])
+          loop rest (res @ [ Call (l, !counter); Label (string_of_int !counter) ])
       | x :: rest -> loop rest (res @ [ x ])
     in
     loop instrs []
@@ -65,35 +64,29 @@ module Casm = struct
     let rec aux ins res =
       match ins with
       | [] -> res
-      (* | IfZero l :: Label _ :: _ -> res @ [ IfZero l ] *)
       | Exit :: _ -> res @ [ Exit ]
       | Goto l :: _ -> res @ [ Goto l ]
       | Ret n :: _ -> res @ [ Ret n ]
-      | Label l :: [] ->
-          if List.mem l funs then res @ [ Goto l ] else res @ [ Label l ]
+      | Label l :: [] -> if List.mem l funs then res @ [ Goto l ] else res @ [ Label l ]
       | x :: rest -> aux rest (res @ [ x ])
     in
     aux instrs []
 
   let collect_n2s ft =
     let rec aux ft res =
-      match ft with
-      | [] -> res
-      | (n, l, _) :: rest -> aux rest (res @ [ (n, l) ])
+      match ft with [] -> res | (n, l, _) :: rest -> aux rest (res @ [ (n, l) ])
     in
     aux ft []
 
   let rec find_tuple_snd tpl name =
     match tpl with
-    | (n, l) :: rest ->
-        if name = l then string_of_int n else find_tuple_snd rest name
+    | (n, l) :: rest -> if name = l then string_of_int n else find_tuple_snd rest name
     | [] -> failwith "unbound label"
 
   let numberize_instrs ins kvs =
     let rec aux ins res =
       match ins with
-      | Call (l, n) :: rest ->
-          aux rest (res @ [ Call (find_tuple_snd kvs l, n) ])
+      | Call (l, n) :: rest -> aux rest (res @ [ Call (find_tuple_snd kvs l, n) ])
       | IfZero l :: rest -> aux rest (res @ [ IfZero (find_tuple_snd kvs l) ])
       | Goto l :: rest -> aux rest (res @ [ Goto (find_tuple_snd kvs l) ])
       | Label l :: rest -> aux rest (res @ [ Label (find_tuple_snd kvs l) ])
@@ -114,17 +107,12 @@ module Casm = struct
     in
     let lst = aux ft [] in
     let n2s = collect_n2s lst in
-    List.map
-      (fun (n, _l, ins) -> (string_of_int n, numberize_instrs ins n2s))
-      lst
+    List.map (fun (n, _l, ins) -> (string_of_int n, numberize_instrs ins n2s)) lst
 
   let compile_to_function instrs =
     let funs = instrs |> label_after_call |> List.rev |> collect_labels in
     let funs =
-      List.map
-        (fun (l, instrs) ->
-          (l, dead_code_elimination instrs (List.map fst funs)))
-        funs
+      List.map (fun (l, instrs) -> (l, dead_code_elimination instrs (List.map fst funs))) funs
     in
     let funs = numberize_labels funs in
     let map = Hashtbl.create (List.length funs) in
@@ -148,24 +136,15 @@ module Flat = struct
       match expr with
       | Cst n -> string_of_int n
       | Prim (prim, exprs) ->
-          "(" ^ string_of_prim prim ^ " "
-          ^ String.concat " " (List.map loop exprs)
-          ^ ")"
+          "(" ^ string_of_prim prim ^ " " ^ String.concat " " (List.map loop exprs) ^ ")"
       | Var s -> s
-      | App (f, args) ->
-          "(" ^ f ^ " " ^ String.concat " " (List.map loop args) ^ ")"
+      | App (f, args) -> "(" ^ f ^ " " ^ String.concat " " (List.map loop args) ^ ")"
       | Let (x, e1, e2) -> "(let (" ^ x ^ " " ^ loop e1 ^ ") " ^ loop e2 ^ ")"
-      | If (e1, e2, e3) ->
-          "(if " ^ loop e1 ^ " " ^ loop e2 ^ " " ^ loop e3 ^ ")"
+      | If (e1, e2, e3) -> "(if " ^ loop e1 ^ " " ^ loop e2 ^ " " ^ loop e3 ^ ")"
     in
     loop expr
 
-  and string_of_prim = function
-    | Add -> "+"
-    | Mul -> "*"
-    | Sub -> "-"
-    | Div -> "/"
-    | Self -> "self"
+  and string_of_prim = function Add -> "+" | Mul -> "*" | Sub -> "-" | Div -> "/" | Self -> "self"
 end
 
 type var = Param of string | Local of string | Temp
@@ -239,8 +218,7 @@ and compile_expr (venv : venv) (expr : Flat.expr) (name : string) (num : int) =
       let op_code = get_prim_op op name in
       es_code @ [ op_code ]
   | Var x -> [ Casm.Var (vindex venv x) ]
-  | App (f, args) ->
-      compile_exprs venv args name num @ [ Casm.Call (f, List.length args) ]
+  | App (f, args) -> compile_exprs venv args name num @ [ Casm.Call (f, List.length args) ]
   | Let (x, e1, e2) ->
       compile_expr venv e1 name num
       @ compile_expr (Local x :: venv) e2 name num
@@ -262,22 +240,18 @@ let compile_fun (fn : Flat.fn) =
   let name, args, body = fn in
   let num = List.length args in
   let venv = List.map (fun x -> Param x) args |> List.rev in
-  List.concat
-    [ Casm.Label name :: compile_expr venv body name num; [ Casm.Ret num ] ]
+  List.concat [ Casm.Label name :: compile_expr venv body name num; [ Casm.Ret num ] ]
 
-let preprocess (expr : expr) =
-  ("main", [], remove_funs expr) :: collect_funs expr
+let preprocess (expr : expr) = ("main", [], remove_funs expr) :: collect_funs expr
 
 let compile (funs : Flat.fn list) =
-  [ Casm.Label "0"; Casm.Call ("main", 0); Casm.Exit ]
-  @ List.concat_map compile_fun funs
+  [ Casm.Label "0"; Casm.Call ("main", 0); Casm.Exit ] @ List.concat_map compile_fun funs
 
 let preprocess_and_compile prog = prog |> preprocess |> compile
 
 let compile_to_function prog =
   let open Casm in
-  prog |> preprocess_and_compile |> label_after_call |> List.rev
-  |> collect_labels
+  prog |> preprocess_and_compile |> label_after_call |> List.rev |> collect_labels
 
 let string_of_prim = function
   | Add -> "add"
