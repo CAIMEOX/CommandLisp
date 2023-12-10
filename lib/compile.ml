@@ -1,5 +1,42 @@
 open Parse
 
+module Dsu = struct
+  type t = { parent : int array; rank : int array }
+
+  let create n =
+    let parent = Array.init n (fun i -> i) in
+    let rank = Array.make n 0 in
+    { parent; rank }
+
+  let find dsu x =
+    let rec loop x = if dsu.parent.(x) = x then x else loop dsu.parent.(x) in
+    loop x
+
+  let union dsu x y =
+    let x = find dsu x in
+    let y = find dsu y in
+    if x = y then ()
+    else
+      let () =
+        if dsu.rank.(x) < dsu.rank.(y) then dsu.parent.(x) <- y
+        else if dsu.rank.(x) > dsu.rank.(y) then dsu.parent.(y) <- x
+        else (
+          dsu.parent.(y) <- x;
+          dsu.rank.(x) <- dsu.rank.(x) + 1)
+      in
+      ()
+
+  let print_dsu dsu =
+    let rec loop i =
+      if i = Array.length dsu.parent then ()
+      else (
+        Printf.printf "%d " dsu.parent.(i);
+        loop (i + 1))
+    in
+    loop 0;
+    Printf.printf "\n"
+end
+
 module Casm = struct
   type instr =
     | Cst of int
@@ -109,12 +146,44 @@ module Casm = struct
     let n2s = collect_n2s lst in
     List.map (fun (n, _l, ins) -> (string_of_int n, numberize_instrs ins n2s)) lst
 
+  let merge_goto ft =
+    let open Dsu in
+    let dsu = create (List.length ft) in
+    List.iter
+      (fun (l, instrs) ->
+        match instrs with
+        | Goto l' :: [] -> union dsu (int_of_string l') (int_of_string l)
+        | IfZero l' :: [] -> union dsu (int_of_string l') (int_of_string l)
+        | _ -> ())
+      ft;
+    let rec aux ft res =
+      match ft with
+      | [] -> res
+      | (l, instrs) :: rest ->
+          if l <> string_of_int (find dsu (int_of_string l)) then aux rest res
+          else
+            aux rest
+              (res
+              @ [
+                  ( l,
+                    List.map
+                      (fun i ->
+                        match i with
+                        | Goto l' -> Goto (string_of_int (find dsu (int_of_string l')))
+                        | IfZero l' -> IfZero (string_of_int (find dsu (int_of_string l')))
+                        | _ -> i)
+                      instrs );
+                ])
+    in
+    aux ft []
+
   let compile_to_function instrs =
     let funs = instrs |> label_after_call |> List.rev |> collect_labels in
     let funs =
       List.map (fun (l, instrs) -> (l, dead_code_elimination instrs (List.map fst funs))) funs
     in
     let funs = numberize_labels funs in
+    let funs = merge_goto funs in
     let map = Hashtbl.create (List.length funs) in
     List.iter (fun (l, instrs) -> Hashtbl.add map l instrs) funs;
     map

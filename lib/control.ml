@@ -56,6 +56,8 @@ module EntityStack = struct
   (* The fp points to the current running function *)
   let cpu_init =
     [
+      Objective (Add ("data_stack_value", "")) |> string_of_scoreboard;
+      Objective (Add ("call_stack_value", "")) |> string_of_scoreboard;
       Objective (Add ("fp", "")) |> string_of_scoreboard;
       Player (Set (Name "cpu", "fp", -1)) |> string_of_scoreboard;
     ]
@@ -74,7 +76,6 @@ module EntityStack = struct
     Execute
       [
         Modify (At sel);
-        Modify (Align ("xyz"));
         Modify (Positioned (Relative (0, 1, 0)));
         Run (Summon (name, direction_to_position d offset) |> string_of_summon);
       ]
@@ -85,7 +86,10 @@ module EntityStack = struct
       [
         Modify (At sel);
         Modify (Positioned (Relative (0, 1, 0)));
-        Modify (As (VarArg (AllEntities, [ get_offset_dire es.direction es.matrix_size ])));
+        Modify
+          (As
+             (VarArg
+                (AllEntities, [ get_offset_dire es.direction es.matrix_size; Type es.entity_type ])));
         Run (Player (Set (Var Self, es.ns.value, 0)) |> string_of_scoreboard);
       ]
     |> string_of_execute
@@ -95,7 +99,7 @@ module EntityStack = struct
       [
         Modify (At sel);
         Modify (Positioned (Relative (0, 1, 0) ++ direction_to_position es.direction 1));
-        Modify (As (VarArg (AllEntities, [ R 0.5 ])));
+        Modify (As (VarArg (AllEntities, [ R 0.5; Type es.entity_type ])));
         Run (Tag.Add (Var Self, es.ns.top) |> Tag.string_of_tag);
       ]
     |> string_of_execute
@@ -106,7 +110,7 @@ module EntityStack = struct
     let tag_all = tag_entity_stack (Var Self) es in
     List.map spawn (1 -- es.matrix_size) @ [ tag_all; stack_header ]
 
-  let stack_top_ref es = VarArg (AllEntities, [ Type es.entity_type; Tag es.ns.top; Count 1 ])
+  let stack_top_ref es = VarArg (AllEntities, [ Type es.entity_type; Tag es.ns.top ])
   let compile_store reg value = Player (Set (Name "cpu", reg, value)) |> string_of_scoreboard
 
   let compile_load_to es reg =
@@ -119,16 +123,17 @@ module EntityStack = struct
     let open Function in
     string_of_function name
 
-  let compile_runtime n =
-    List.map
-      (fun i ->
+  let compile_switch name =
+    Player (Set (Name "cpu", "fp", int_of_string name)) |> string_of_scoreboard
+
+  let compile_runtime =
+    List.map (fun i ->
         Execute
           [
-            Option (If (Score (MatchesValue (Name "cpu", "fp", i))));
-            Run (compile_fun_call (string_of_int i));
+            Option (If (Score (MatchesValue (Name "cpu", "fp", int_of_string i))));
+            Run (compile_fun_call i);
           ]
         |> string_of_execute)
-      (0 -- n)
 
   let compile_if_then reg v cmd =
     let open Execute in
@@ -140,9 +145,14 @@ module EntityStack = struct
     Execute
       [
         Modify (PositionedAs (stack_top_ref es));
-        Modify (Positioned (direction_to_position es.direction (-n)));
-        Modify (As (VarArg (AllEntities, [ R 0.5 ])));
-        Run (compile_load_to es reg);
+        Run
+          (Execute
+             [
+               Modify (Positioned (direction_to_position es.direction (-n)));
+               Modify (As (VarArg (AllEntities, [ R 0.5; Type es.entity_type ])));
+               Run (compile_load_to es reg);
+             ]
+          |> string_of_execute);
       ]
     |> string_of_execute
 
@@ -151,10 +161,15 @@ module EntityStack = struct
       Tag.Add (stack_top_ref es, es.ns.tmp) |> Tag.string_of_tag;
       Execute
         [
-          Modify (As (VarArg (AllEntities, [ Tag es.ns.tmp ])));
-          Modify (Positioned (direction_to_position es.direction n));
-          Modify (As (VarArg (AllEntities, [ R 0.5 ])));
-          Run (Tag.Add (Var Self, es.ns.top) |> Tag.string_of_tag);
+          Modify (PositionedAs (VarArg (AllEntities, [ Tag es.ns.tmp ])));
+          Run
+            (Execute
+               [
+                 Modify (Positioned (direction_to_position es.direction n));
+                 Modify (As (VarArg (AllEntities, [ R 0.5; Type es.entity_type ])));
+                 Run (Tag.Add (Var Self, es.ns.top) |> Tag.string_of_tag);
+               ]
+            |> string_of_execute);
         ]
       |> string_of_execute;
       Tag.Remove (VarArg (AllEntities, [ Type es.entity_type; Tag es.ns.tmp ]), es.ns.top)
