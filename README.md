@@ -1,17 +1,19 @@
 # Command Lisp
 ![logo](raw/logo.png)
 
-> The Project is WIP actively. Click to view the [design document](design.md)
-
 Command Lisp is a simplified language designed for Minecraft Bedrock Command System, characterized by a very high level of abstraction, which is also a dialect of Lisp.
 
-> What sets Lisp apart is its design to be self-evolving. In Lisp, you can define new Lisp operators. When new abstract concepts become popular (such as object-oriented programming), we always find that these new concepts are easiest to implement in Lisp. Lisp is like the DNA of languages, a language that will never become obsolete.
+> What sets Lisp apart is its design to be self-evolving. In Lisp, you can define new Lisp operators. When new abstract concepts become popular (such as object-oriented programming), we always find that these new concepts are easiest to implement in Lisp. 
+> 
+> Lisp is like the DNA of languages, a language that will never become obsolete.
+> 
+>  *Paul Graham*
 
 ## Command Lisp Compiler (clc)
-This repository is mainly the compiler of language Command Lisp (CLC). CLC is actively developing now but it still requires a lot of effort to accomplish the compiler.
+This repository is mainly the compiler of language Command Lisp (clc). Clc is actively developing now but it still requires a lot of effort to accomplish the compiler.
 
 ### Set up environment
-CL uses **dune** as the project manager like most ocaml projects. The project provides a quick environment for **nix**. The following command will automatically set up the developing environment:
+CL uses **dune** as the project manager like most ocaml projects. The project provides a quick environment for **nix**. The following command will automatically set up the developing environment (Linux):
 ```shell
 nix-shell shell.nix
 ```
@@ -19,7 +21,7 @@ nix-shell shell.nix
 Or without nix:
 ```sh
 sudo apt install ocaml opam
-opam install core
+opam install core yojson
 ```
 
 ### Build Project
@@ -45,50 +47,158 @@ In Minecraft Bedrock, editing commands can sometimes be very challenging, and th
 This project tried many languages ​​during the development process, and finally chose Ocaml. Click [here](design.md#why-ocaml) to see the detail
 
 ## Basic Syntax
-In command lisp we currently support int type.
-```clojure
-(let [n1 v1 n2 v2 ...] (expr))
-(let [a 3 b 5] (+ a b)) ; 8
+The name "Command Lisp" is taken from "Common Lisp" and "Command", which indicates that the syntax of CL is similar to Common Lisp: Syntax is made up of **S-expressions**. An S-expression is either an **atom** or a **list**.
+
+- Atoms can be integers (int32) like `114` and `514` or symbols like `cl`, `+` and etc.
+
+- There’s also a special kind of **symbol** called keywords, which are colon-prefixed symbols like `:abc` or `:keyword`. Keywords evaluate to themselves (something like enums)
+
+- Lists are made up with atoms
+
+- All the expressions will be evaluates to a value.
+
+### Comments
+The comments in CL are very simple.
+
+```lisp
+; Single line comments start with a semicolon
+
+#|
+  Multi-line comment.
+  #|
+    Can be nested.
+  |#
+|#
+
 ```
 
-Define function and use it.
-```clojure
+### Hello World
+
+```lisp
+(tellraw :all "Hello World")
+```
+- This expression call a built-in function named `tellraw` with parameters `:all` and `"Hello World"`
+- This command will print a message `Hello World` in screen
+- The return value of this function will be always `0`
+
+### Function
+Function can be defined simply by `def`.
+
+```lisp
+(def fib (n)
+  (if (< n 2)
+      n
+      (+ (fib (- n 1))
+         (fib (- n 2)))))
+
 (def name [param1 param2 param2 ...] (body) (expr))
-(def square [n] (* n n) (square 10)) ; 100
+
+(def square (n) (* n n))
 ```
 
-Conditional
-```clojure
+Function call (application):
+```lisp
+(fib 10) ; 89
+```
+
+### Local variables
+
+Local variables are normal lexically scoped variables (with `let` operator)
+
+```lisp
+(let ((x 10)) (square x)) ; 100
+(let ((x 11) (y 4)) (+ x y)) ; 15
+(let ((x 10) (y (+ x 2))) (+ x y)) ; 22
+```
+
+### IO
+See the operation of scoreboards.
+
+### Control Flow
+Condition `if`
+```lisp
 (if (condition) (then) (else))
 (if (> 4 3) 3 4) ; 3
-(if (tag~ a "TEST") (write "Found player marked for TEST") (write "No player has the TEST tag"))
+(if (tag? :random "TEST")
+    (write "Found player marked for TEST")
+    (write "No player has the TEST tag"))
 ```
 
+- The condition will be compiled to a `execute` command and the result (where `0` for `false` and `1` for `true`) will be pushed to the top of the data stack.
+- The write is similar to `tellraw` but the first argument was set to `:all`.
+
+Available predicates:
+- `>`: greater than
+- `<`: less than
+- `>=`: greater than or equal
+- `<=`: less than or equal
+- `=`: equal
+- `tag?`: has tag
+
+### Command
+Some essential command was included in CL core library but not all covered.
+
 Inline Command (all these expression return `0` in default)
-```clojure
+```lisp
 (inline command) ; single
 (seq [command1 command2 command3]) ; sequences
 ```
 
-## Minecraft Commands
-We provide some simple commands (Sugar)
-```clojure
-(tag+ @p TAG_1) ; tag @p add TAG_1
-(tag- @r TAG_2) ; tag @p remove TAG_2
-(if (tag~ @p TAG_3) (inline "say hello world")) ; execute if @p[tag=TAG_3] run say hello world
+#### Target Selector
+Target selector variables:
+- `:all`: All players
+- `:entity`: All entities
+- `:nearest`: Nearest player
+- `:random`: Random player
+- `:self`: The executor itself
+
+Or just use raw string:
+```lisp
+(tellraw "caimeo" "Hello World")
+(tellraw "@e[r=10]" "Radius 10")
 ```
 
-Write to screen
-```clojure
-(write "Hello World") ; [!]Hello World
+#### Scoreboard
+- Read a value from scoreboard objectives
+```lisp
+(read :nearest "obj") 
+; Read objective obj from nearest player. 
+; This can be used for local variable definition.
 ```
 
-Teleport
-
-```clojure
-(tp r r) ; "tp @r @r"
-(tp a p) ; "tp @a @p"
+- Set a value to scoreboard objectives
+```lisp
+(set :all "obj" 1) ; set obj to 1
 ```
+
+- Read and save a value
+```lisp
+(let ((x (read :all "obj1"))) (set :all "obj2" x)) ; equiv to
+(save :all "obj1" :all "obj2") ; save obj1 to obj2
+```
+
+- Swap the values
+
+```lisp
+(swap :all "obj1" :all "obj2") ; swap obj1 and obj2
+```
+
+#### Tag
+```lisp
+(tag+ :nearest TAG_1)
+(tag- :random TAG_2)
+(if (tag? :nearest TAG_3)
+    (tellraw :all "wow"))
+```
+
+#### Teleport
+```lisp
+(tp :random :random)
+(tp :all :nearest)
+```
+
+## Design
+The design document of Command Lisp can be found [here](./design.md)
 
 ## License
 GNU GENERAL PUBLIC LICENSE Version 3

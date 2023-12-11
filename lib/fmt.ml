@@ -63,6 +63,6 @@ let format_labeled tbl =
       Printf.sprintf "[%s]: \n%s" l
         (List.map (fun t -> "\t" ^ string_of_instr t) instrs |> String.concat "\n"))
     tbl
- 
+
 let print_labeled tbl = List.iter print_endline (format_labeled tbl)
 let pretty_print instrs = print_endline (pretty_instrs instrs)

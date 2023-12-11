@@ -4,7 +4,7 @@ open Compile
 
 let cmp =
   let open Casm in
-  fib 10 |> preprocess_and_compile  |> label_after_call
+  fib 10 |> preprocess_and_compile |> label_after_call
 
 let ele =
   let funs = cmp |> List.rev |> Casm.collect_labels in

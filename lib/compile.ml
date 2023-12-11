@@ -38,6 +38,8 @@ module Dsu = struct
 end
 
 module Casm = struct
+  type syscall = Tellraw | Titleraw | Load | Save
+
   type instr =
     | Cst of int
     | Pop
@@ -52,7 +54,7 @@ module Casm = struct
     | Label of string
     | IfZero of string
     | Goto of string
-    | Syscall
+    | Syscall of syscall
     | Exit
 
   type string_list_map = (string, instr list) Hashtbl.t

@@ -53,10 +53,22 @@ let compile_single rc es cs instr =
   let open Command in
   let open EntityStack in
   match instr with
-  | Add -> compile_pop es rc.x @ compile_pop es rc.y @ compile_prim ScoreBoard.Add rc.x rc.y @ compile_push es rc.x
-  | Sub -> compile_pop es rc.x @ compile_pop es rc.y @ compile_prim ScoreBoard.Sub rc.x rc.y @ compile_push es rc.x
-  | Mul -> compile_pop es rc.x @ compile_pop es rc.y @ compile_prim ScoreBoard.Mul rc.x rc.y @ compile_push es rc.x
-  | Div -> compile_pop es rc.x @ compile_pop es rc.y @ compile_prim ScoreBoard.Div rc.x rc.y @ compile_push es rc.x
+  | Add ->
+      compile_pop es rc.x @ compile_pop es rc.y
+      @ compile_prim ScoreBoard.Add rc.x rc.y
+      @ compile_push es rc.x
+  | Sub ->
+      compile_pop es rc.x @ compile_pop es rc.y
+      @ compile_prim ScoreBoard.Sub rc.x rc.y
+      @ compile_push es rc.x
+  | Mul ->
+      compile_pop es rc.x @ compile_pop es rc.y
+      @ compile_prim ScoreBoard.Mul rc.x rc.y
+      @ compile_push es rc.x
+  | Div ->
+      compile_pop es rc.x @ compile_pop es rc.y
+      @ compile_prim ScoreBoard.Div rc.x rc.y
+      @ compile_push es rc.x
   | Cst i -> [ compile_store rc.x i ] @ compile_push es rc.x
   | Pop -> compile_pop es rc.tmp
   | Swap -> compile_pop es rc.x @ compile_pop es rc.y @ compile_push es rc.x @ compile_push es rc.y
@@ -65,7 +77,7 @@ let compile_single rc es cs instr =
       compile_pop es rc.x @ compile_move_sp es (-n) @ compile_push es rc.x @ compile_pop cs rc.fp
   | Call (f, n) ->
       (compile_store rc.x n :: compile_push cs rc.x) @ [ compile_store rc.fp (int_of_string f) ]
-  | Label x | Goto x -> [ compile_switch x ]
+  | Label x | Goto x -> [ compile_fun_call x ]
   | Var i -> [ compile_peek es rc.x i ] @ compile_push es rc.x
   | _ -> failwith ""
 
