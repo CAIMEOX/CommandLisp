@@ -112,7 +112,13 @@ Local variables are normal lexically scoped variables (with `let` operator)
 ```
 
 ### IO
-See the operation of scoreboards.
+CL provides the following functions for print:
+
+- `tellraw <target> <string>`
+- `titleraw <target> <string>`
+- `printf <target> <raw_string> <int list>`
+- `titlef <target> <raw_string> <int list>`
+- See the operation of scoreboards.
 
 ### Control Flow
 Condition `if`
@@ -133,7 +139,13 @@ Available predicates:
 - `>=`: greater than or equal
 - `<=`: less than or equal
 - `=`: equal
+- `/=`: not equal
 - `tag?`: has tag
+
+For multi-case:
+```lisp
+(cond (((cond1) (then1)) ((cond2) (then2))))
+```
 
 ### Command
 Some essential command was included in CL core library but not all covered.
@@ -143,6 +155,11 @@ Inline Command (all these expression return `0` in default)
 (inline command) ; single
 (seq [command1 command2 command3]) ; sequences
 ```
+
+#### Macro System
+The Macro System is a powerful and distinctive feature that sets Lisp apart from many other programming languages. Macros in Lisp allow developers to define new language constructs and extend the language itself (meta-programming). 
+
+In Common Lisp, you can use more built-in function and data type which will be evaluated at compiling time. 
 
 #### Target Selector
 Target selector variables:
@@ -191,6 +208,31 @@ Or just use raw string:
     (tellraw :all "wow"))
 ```
 
+#### Async
+Asynchronous programming is a programming paradigm that deals with the execution of operations that may run concurrently or independently, without the need for explicit synchronization. 
+
+Asynchronous programming is particularly relevant in scenarios where certain operations, such as I/O operations may take a significant amount of time to complete, and waiting for them to finish in a synchronous manner would result in inefficiency and wasted resources.
+
+In Minecraft world we may need something like *waiting a pig reach a particular area*, which is a async event. CL provides a feature called `await` (Wait until done) for this situation.
+
+```lisp
+(await (tag? :all "done")
+       (tellraw :all "All done"))
+```
+
+- The code stops until all players are tagged with `done`.
+- After that the tellraw expression will be executed.
+
+```lisp
+(await (/= 0 (read :nearest "value"))
+       (let (v (read :nearest "value"))
+       (printf :all "fib of ~d is ~d" v (fib v))))
+```
+
+- Read a value from nearest player's objective `value` (can't be `0`)
+- Assign the score of `value` to variable `v`
+- Calculate the `v`-th fibonacci number and print to screen
+
 #### Teleport
 ```lisp
 (tp :random :random)
@@ -201,5 +243,6 @@ Or just use raw string:
 The design document of Command Lisp can be found [here](./design.md)
 
 ## License
+
 GNU GENERAL PUBLIC LICENSE Version 3
 

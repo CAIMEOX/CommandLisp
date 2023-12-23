@@ -54,7 +54,7 @@ module Casm = struct
     | Label of string
     | IfZero of string
     | Goto of string
-    | Syscall of syscall
+    | Syscall
     | Exit
 
   type string_list_map = (string, instr list) Hashtbl.t
